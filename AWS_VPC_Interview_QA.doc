@@ -1,0 +1,423 @@
+<html><head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.13/html-to-image.min.js" integrity="sha512-iZ2ORl595Wx6miw+GuadDet4WQbdSWS3JLMoNfY8cRGoEFy6oT3G9IbcrBeL6AfkgpA51ETt/faX6yLV+/gFJg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script>
+      (function() {
+        const originalConsole = window.console;
+        window.console = {
+          log: (...args) => {
+            originalConsole.log(...args);
+            window.parent.postMessage({ type: 'console', message: args.join(' ') }, '*');
+          },
+          error: (...args) => {
+            originalConsole.error(...args);
+            window.parent.postMessage({ type: 'console', message: 'Error: ' + args.join(' ') }, '*');
+          },
+          warn: (...args) => {
+            originalConsole.warn(...args);
+            window.parent.postMessage({ type: 'console', message: 'Warning: ' + args.join(' ') }, '*');
+          }
+        };
+
+        let requestId = 0;
+        let callbacksMap = new Map();
+        let streamControllers = new Map();
+        
+        window.claude = {
+          complete: (prompt) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'claudeComplete', id, prompt }, '*');
+            });
+          }
+        };
+
+        window.storage = {
+          get: (key, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'storageGet', id, key, shared }, '*');
+            });
+          },
+          set: (key, value, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'storageSet', id, key, value, shared }, '*');
+            });
+          },
+          delete: (key, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'storageDelete', id, key, shared }, '*');
+            });
+          },
+          list: (prefix, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'storageList', id, prefix, shared }, '*');
+            });
+          }
+        };
+
+        let pendingBlobs = new Map();
+        URL.createObjectURL = (blob) => {
+          // Store the blob and create an ID and URL for it
+          const blobId = `blob-${Date.now()}-${Math.random()}`;
+          pendingBlobs.set(blobId, blob);
+          return `blob-request://${blobId}`;
+        };
+
+        URL.revokeObjectURL = (url) => {
+          // Remove the blob from our store
+          const blobId = url.replace("blob-request://", "");
+          pendingBlobs.delete(blobId);
+        };
+
+        const getBlobFromURL = (url) => {
+          const blobId = url.replace("blob-request://", "");
+          return pendingBlobs.get(blobId);
+        };
+
+        // Override global fetch with streaming support
+        window.fetch = (url, init = {}) => {
+          return new Promise((resolve, reject) => {
+            const id = requestId++;
+            const channelId = `fetch-${id}-${Date.now()}`;
+            
+            callbacksMap.set(id, { 
+              resolve: (response) => {
+                // Create a ReadableStream for the response body
+                const stream = new ReadableStream({
+                  start(controller) {
+                    streamControllers.set(channelId, controller);
+                  },
+                  cancel() {
+                    streamControllers.delete(channelId);
+                  }
+                });
+                
+                // Create and return the Response with the stream
+                resolve(new Response(stream, {
+                  status: response.status,
+                  statusText: response.statusText,
+                  headers: response.headers
+                }));
+              },
+              reject,
+              channelId
+            });
+            
+            window.parent.postMessage({
+              type: 'proxyFetch',
+              id,
+              url,
+              init,
+              channelId
+            }, '*');
+          });
+        };
+
+        window.addEventListener('message', async (event) => {
+          if (event.data.type === 'takeScreenshot') {
+            const rootElement = document.getElementById('artifacts-component-root-html');
+            if (!rootElement) {
+              window.parent.postMessage({
+                type: 'screenshotError',
+                error: new Error('Root element not found'),
+              }, '*');
+            }
+            const screenshot = await htmlToImage.toPng(rootElement, {
+              imagePlaceholder:
+                "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAAXNSR0IArs4c6QAAAA1JREFUGFdjePDgwX8ACOQDoNsk0PMAAAAASUVORK5CYII=",
+            });
+            window.parent.postMessage({
+              type: 'screenshotData',
+              data: screenshot,
+            }, '*');
+          } else if (event.data.type === 'claudeComplete') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.completion);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'proxyFetchResponse') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+              callbacksMap.delete(event.data.id);
+            } else {
+              // Initial response with headers, status, etc.
+              callback.resolve({
+                status: event.data.status,
+                statusText: event.data.statusText,
+                headers: event.data.headers
+              });
+              // Don't delete the callback yet if streaming
+              if (!event.data.body) {
+                callbacksMap.delete(event.data.id);
+              }
+            }
+          } else if (event.data.type === 'proxyFetchStream') {
+            // Handle streaming data chunks
+            const controller = streamControllers.get(event.data.channelId);
+            if (controller) {
+              if (event.data.error) {
+                controller.error(new Error(event.data.error));
+                streamControllers.delete(event.data.channelId);
+              } else if (event.data.done) {
+                controller.close();
+                streamControllers.delete(event.data.channelId);
+                // Clean up the callback
+                const callback = Array.from(callbacksMap.entries()).find(
+                  ([_, value]) => value.channelId === event.data.channelId
+                );
+                if (callback) {
+                  callbacksMap.delete(callback[0]);
+                }
+              } else if (event.data.chunk) {
+                controller.enqueue(new Uint8Array(event.data.chunk));
+              }
+            }
+          } else if (event.data.type === 'storageGet') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageSet') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageDelete') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageList') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          }
+        });
+
+        window.addEventListener('click', (event) => {
+          const isEl = event.target instanceof HTMLElement;
+          if (!isEl) return;
+    
+          // find ancestor links
+          const linkEl = event.target.closest("a");
+          if (!linkEl || !linkEl.href) return;
+    
+          event.preventDefault();
+          event.stopImmediatePropagation();
+    
+          if (linkEl.href.startsWith("blob-request:")) {
+            const blob = getBlobFromURL(linkEl.href);
+            if (!blob) return;
+            void blob.arrayBuffer().then((data) => {
+              window.parent.postMessage({
+                type: "downloadFile",
+                filename: linkEl.download,
+                data,
+                mimeType: blob.type || "application/octet-stream",
+              });
+            });
+          } else if (linkEl.href.startsWith("data:")) {
+            const [header, base64Data] = linkEl.href.split(",");
+            const mimeMatch = header.match(/data:([^;]+)/);
+            const mimeType = mimeMatch ? mimeMatch[1] : "application/octet-stream";
+            const binaryString = atob(base64Data);
+            const data = Uint8Array.from(binaryString, (c) =>
+              c.charCodeAt(0),
+            ).buffer;
+            window.parent.postMessage({
+              type: "downloadFile",
+              filename: linkEl.download,
+              data,
+              mimeType,
+            });
+          } else {
+            let linkUrl;
+            try {
+              linkUrl = new URL(linkEl.href);
+            } catch (error) {
+              return;
+            }
+    
+            if (linkUrl.hostname === window.location.hostname) return;
+      
+            window.parent.postMessage({
+              type: 'openExternal',
+              href: linkEl.href,
+            }, '*');
+          }
+      });
+
+        const originalOpen = window.open;
+        window.open = function (url) {
+          window.parent.postMessage({
+            type: "openExternal",
+            href: url,
+          }, "*");
+        };
+
+        window.addEventListener('error', (event) => {
+          window.parent.postMessage({ type: 'console', message: 'Uncaught Error: ' + event.message }, '*');
+        });
+      })();
+    </script>
+  
+<meta charset="UTF-8">
+<title>AWS VPC Interview Questions &amp; Answers</title>
+<style>
+  body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #000; margin: 40px; line-height: 1.6; }
+  h1 { font-size: 20pt; color: #1a56db; text-align: center; border-bottom: 3px solid #1a56db; padding-bottom: 10px; margin-bottom: 4px; }
+  p.subtitle { text-align: center; color: #555; font-size: 10pt; margin-top: 4px; margin-bottom: 30px; }
+  h2 { font-size: 13pt; color: #fff; background: #1a56db; padding: 7px 12px; margin-top: 30px; margin-bottom: 10px; border-radius: 3px; }
+  .qa { margin-bottom: 16px; page-break-inside: avoid; }
+  .q { font-weight: bold; color: #1a1a1a; margin-bottom: 4px; }
+  .qnum { color: #1a56db; font-weight: bold; margin-right: 4px; }
+  .a { background: #f4f7ff; border-left: 4px solid #1a56db; padding: 8px 12px; color: #222; margin-top: 2px; }
+</style>
+</head>
+<body id="artifacts-component-root-html">
+<h1>🔒 AWS VPC Interview Questions &amp; Answers</h1>
+<p class="subtitle">67 Questions across 8 Topics — Ready for Print or Word</p>
+<div id="content"><h2>1. BASICS</h2><div class="qa"><div class="q"><span class="qnum">Q1.</span>What is Amazon VPC?</div><div class="a"><strong>Answer:</strong> Amazon VPC (Virtual Private Cloud) is a logically isolated section of the AWS cloud where you can launch AWS resources in a virtual network that you define. You have complete control over your virtual networking environment, including selection of your IP address range, creation of subnets, and configuration of route tables and network gateways.</div></div><div class="qa"><div class="q"><span class="qnum">Q2.</span>What is the difference between a Default VPC and a Custom VPC?</div><div class="a"><strong>Answer:</strong> A Default VPC is automatically created by AWS in each region for every account. It comes pre-configured with a /16 IPv4 CIDR (172.31.0.0/16), a default subnet in each AZ, an Internet Gateway, a default route table, and a default security group — ready for immediate use. A Custom VPC is one you create manually with full control over CIDR, subnets, routing, and security settings. Custom VPCs are preferred for production workloads.</div></div><div class="qa"><div class="q"><span class="qnum">Q3.</span>What is a CIDR block in VPC?</div><div class="a"><strong>Answer:</strong> CIDR (Classless Inter-Domain Routing) is a method for allocating IP addresses. In VPC, you assign a CIDR block (e.g., 10.0.0.0/16) to define the IP address range for the VPC. The /16 means 65,536 possible IP addresses. You can assign a primary CIDR of /16 to /28 size. You can also add up to 4 secondary CIDR blocks to a VPC.</div></div><div class="qa"><div class="q"><span class="qnum">Q4.</span>What are the allowed CIDR block sizes for a VPC?</div><div class="a"><strong>Answer:</strong> AWS allows VPC CIDR blocks ranging from /16 (65,536 IPs) to /28 (16 IPs). The CIDR block must be from the private IPv4 ranges: 10.0.0.0/8, 172.16.0.0/12, or 192.168.0.0/16 (RFC 1918). You can also use publicly routable addresses, but private ranges are recommended. You cannot change the primary CIDR once created.</div></div><div class="qa"><div class="q"><span class="qnum">Q5.</span>How many VPCs can you create per region by default?</div><div class="a"><strong>Answer:</strong> By default, you can create up to 5 VPCs per region per AWS account. This is a soft limit and can be increased by submitting a request to AWS Support. Other default limits include 200 subnets per VPC, 200 route tables per VPC, 500 security groups per VPC, and 5 Elastic IP addresses per region.</div></div><div class="qa"><div class="q"><span class="qnum">Q6.</span>What is a Tenancy option in VPC?</div><div class="a"><strong>Answer:</strong> VPC tenancy determines how EC2 instances run on physical hardware. Default tenancy means instances run on shared hardware (cost-effective). Dedicated tenancy means all instances in the VPC run on single-tenant dedicated hardware (more expensive, used for compliance). You can set tenancy at VPC level (applies to all instances) or override at instance launch.</div></div><div class="qa"><div class="q"><span class="qnum">Q7.</span>Can you modify a VPC's CIDR block after creation?</div><div class="a"><strong>Answer:</strong> You cannot modify or delete the primary CIDR block of a VPC after creation. However, you can add up to 4 secondary CIDR blocks to expand the VPC's IP range. Secondary CIDRs must not overlap with existing CIDRs in the VPC or with CIDRs in any connected networks. You can remove secondary CIDRs if no subnets are using them.</div></div><div class="qa"><div class="q"><span class="qnum">Q8.</span>What is an IPv6 VPC?</div><div class="a"><strong>Answer:</strong> You can optionally assign an IPv6 CIDR block (/56) to your VPC and /64 blocks to subnets. IPv6 addresses are globally unique and public by default. Unlike IPv4, there is no NAT for IPv6 — you use an Egress-Only Internet Gateway for outbound-only IPv6 access. IPv6 support is opt-in and can be added to existing VPCs.</div></div><div class="qa"><div class="q"><span class="qnum">Q9.</span>What are the components of a VPC?</div><div class="a"><strong>Answer:</strong> Key VPC components include: Subnets (public/private), Route Tables, Internet Gateway (IGW), NAT Gateway/Instance, Virtual Private Gateway (VGW), VPC Peering, Security Groups, Network ACLs (NACLs), VPC Endpoints, DHCP Option Sets, Elastic IPs, Flow Logs, and Transit Gateway for multi-VPC connectivity.</div></div><div class="qa"><div class="q"><span class="qnum">Q10.</span>Is VPC region-specific or AZ-specific?</div><div class="a"><strong>Answer:</strong> A VPC is region-specific — it spans all Availability Zones within a region. However, subnets within a VPC are AZ-specific — each subnet resides in exactly one AZ. To achieve high availability, you create subnets in multiple AZs and distribute your resources across them.</div></div><h2>2. SUBNETS</h2><div class="qa"><div class="q"><span class="qnum">Q11.</span>What is a subnet in a VPC?</div><div class="a"><strong>Answer:</strong> A subnet is a subdivision of a VPC's IP address range within a single Availability Zone. Subnets allow you to segment your VPC for different tiers (web, app, database) and control routing and access. Each subnet must be associated with a route table and a Network ACL. Subnets cannot span multiple AZs.</div></div><div class="qa"><div class="q"><span class="qnum">Q12.</span>What is the difference between a public and private subnet?</div><div class="a"><strong>Answer:</strong> A public subnet has a route to an Internet Gateway (0.0.0.0/0 → IGW) in its route table, enabling direct internet connectivity for instances with public IPs. A private subnet has no route to an IGW — instances can only access the internet via a NAT Gateway. Private subnets are used for databases, app servers, and internal services.</div></div><div class="qa"><div class="q"><span class="qnum">Q13.</span>How many IP addresses does AWS reserve in each subnet?</div><div class="a"><strong>Answer:</strong> AWS reserves 5 IP addresses in every subnet: the network address (.0), VPC router (.1), DNS server (.2), reserved for future use (.3), and the broadcast address (last IP). For example, a /24 subnet (256 addresses) has only 251 usable IPs. Always account for these 5 reserved addresses when sizing subnets.</div></div><div class="qa"><div class="q"><span class="qnum">Q14.</span>What is a subnet CIDR and how do you size it?</div><div class="a"><strong>Answer:</strong> A subnet CIDR is a subset of the VPC CIDR that defines the IP range for that subnet. Sizing depends on the number of resources you plan to host. For example, a /24 gives 251 usable IPs, /25 gives 123, /26 gives 59. Best practice is to size subnets generously to allow for growth, and to make private subnets larger than public ones since most resources live there.</div></div><div class="qa"><div class="q"><span class="qnum">Q15.</span>What is an isolated (protected) subnet?</div><div class="a"><strong>Answer:</strong> An isolated subnet (sometimes called a protected or database subnet) has no route to either an Internet Gateway or a NAT Gateway — it has no outbound internet access at all. It communicates only within the VPC. This is the highest security tier, used for databases and highly sensitive workloads that should never reach the internet.</div></div><div class="qa"><div class="q"><span class="qnum">Q16.</span>Can a subnet span multiple Availability Zones?</div><div class="a"><strong>Answer:</strong> No. Each subnet is confined to a single Availability Zone. To achieve multi-AZ redundancy, you create separate subnets in each AZ. For example, in a 3-tier architecture across 3 AZs, you would create 9 subnets total: 3 public, 3 private (app tier), and 3 private (database tier) — one of each type per AZ.</div></div><div class="qa"><div class="q"><span class="qnum">Q17.</span>What is auto-assign public IP for subnets?</div><div class="a"><strong>Answer:</strong> Each subnet has an 'auto-assign public IPv4 address' setting. When enabled, instances launched in that subnet automatically receive a public IPv4 address in addition to their private IP. This is typically enabled only for public subnets. The default VPC has this enabled for all subnets. In custom VPCs, it is disabled by default.</div></div><h2>3. ROUTING</h2><div class="qa"><div class="q"><span class="qnum">Q18.</span>What is a Route Table in VPC?</div><div class="a"><strong>Answer:</strong> A route table contains a set of rules (routes) that determine where network traffic from your subnet or gateway is directed. Each route has a destination (CIDR) and a target (IGW, NAT GW, VPC Peering connection, etc.). Every subnet must be associated with a route table. If not explicitly associated, the subnet uses the VPC's main route table.</div></div><div class="qa"><div class="q"><span class="qnum">Q19.</span>What is the Main Route Table vs Custom Route Tables?</div><div class="a"><strong>Answer:</strong> The Main Route Table is automatically created with the VPC and is the default for all subnets not explicitly associated with another route table. Custom Route Tables are ones you create and associate with specific subnets. Best practice is to leave the main route table private (no IGW route) and create custom route tables for public subnets.</div></div><div class="qa"><div class="q"><span class="qnum">Q20.</span>What is the local route in a route table?</div><div class="a"><strong>Answer:</strong> Every route table automatically contains a local route for the VPC CIDR (e.g., 10.0.0.0/16 → local). This route enables communication between all resources within the VPC. It cannot be deleted or modified. Traffic destined for any IP within the VPC CIDR is automatically routed locally, regardless of other routes.</div></div><div class="qa"><div class="q"><span class="qnum">Q21.</span>What is an Internet Gateway (IGW)?</div><div class="a"><strong>Answer:</strong> An Internet Gateway is a horizontally scaled, redundant, and highly available VPC component that enables communication between the VPC and the internet. It serves two purposes: providing a target in route tables for internet-routable traffic, and performing NAT for instances with public IPv4 addresses. Only one IGW can be attached to a VPC at a time.</div></div><div class="qa"><div class="q"><span class="qnum">Q22.</span>What is a NAT Gateway and how does it work?</div><div class="a"><strong>Answer:</strong> A NAT (Network Address Translation) Gateway allows instances in private subnets to initiate outbound connections to the internet while preventing inbound connections. It replaces the source private IP with its own Elastic IP. NAT Gateways are managed by AWS, highly available within an AZ, and support up to 45 Gbps. You must deploy one per AZ for HA.</div></div><div class="qa"><div class="q"><span class="qnum">Q23.</span>What is the difference between NAT Gateway and Internet Gateway?</div><div class="a"><strong>Answer:</strong> An Internet Gateway enables two-way communication (inbound + outbound) between the VPC and internet, used by public subnet instances. A NAT Gateway enables only outbound-initiated traffic from private subnet instances — it prevents inbound connections. IGW requires a public IP on the instance; NAT Gateway uses its own Elastic IP to masquerade private IPs.</div></div><div class="qa"><div class="q"><span class="qnum">Q24.</span>What is an Egress-Only Internet Gateway?</div><div class="a"><strong>Answer:</strong> An Egress-Only Internet Gateway is used for IPv6 traffic to allow outbound-only internet access from private IPv6-addressed instances, similar to how a NAT Gateway works for IPv4. It blocks inbound IPv6 connections from the internet. It is stateful and does not require NAT — IPv6 addresses are publicly routable but the EIGW controls direction.</div></div><div class="qa"><div class="q"><span class="qnum">Q25.</span>What is the most specific route rule in AWS routing?</div><div class="a"><strong>Answer:</strong> AWS uses longest prefix match (most specific route) to determine how to route traffic. For example, if a route table has routes for 10.0.0.0/16 (VPC peering) and 0.0.0.0/0 (IGW), traffic to 10.0.1.5 matches the more specific /16 and goes through peering. More specific (longer) prefixes always take priority.</div></div><h2>4. SECURITY</h2><div class="qa"><div class="q"><span class="qnum">Q26.</span>What are Security Groups in VPC?</div><div class="a"><strong>Answer:</strong> Security Groups are stateful virtual firewalls at the ENI (instance) level. They control inbound and outbound traffic using allow rules only — there are no deny rules. Being stateful means return traffic is automatically allowed. Rules reference IP CIDRs, port ranges, protocols, or other security group IDs. Changes apply immediately to all associated instances.</div></div><div class="qa"><div class="q"><span class="qnum">Q27.</span>What are Network ACLs (NACLs)?</div><div class="a"><strong>Answer:</strong> Network ACLs are stateless firewalls at the subnet level. They evaluate both inbound and outbound rules independently. Unlike Security Groups, NACLs support both allow and deny rules, evaluated in ascending rule number order (lowest first). Because they're stateless, you must explicitly allow return traffic. Each subnet can be associated with only one NACL.</div></div><div class="qa"><div class="q"><span class="qnum">Q28.</span>What is the key difference between Security Groups and NACLs?</div><div class="a"><strong>Answer:</strong> Security Groups: stateful (return traffic auto-allowed), instance-level, allow rules only, all rules evaluated together, support up to 60 inbound + 60 outbound rules. NACLs: stateless (must allow return traffic explicitly), subnet-level, allow AND deny rules, rules evaluated in number order, each subnet has exactly one NACL. NACLs are good for blocking specific IPs across a subnet.</div></div><div class="qa"><div class="q"><span class="qnum">Q29.</span>What is the default NACL behavior?</div><div class="a"><strong>Answer:</strong> The default NACL (auto-created with each VPC) allows all inbound and outbound traffic (rule 100: allow all, and a * rule: deny all remaining). When you create a custom NACL, it starts with only a * DENY ALL rule for both inbound and outbound — meaning all traffic is denied until you add explicit allow rules.</div></div><div class="qa"><div class="q"><span class="qnum">Q30.</span>What are VPC Flow Logs?</div><div class="a"><strong>Answer:</strong> VPC Flow Logs capture metadata about IP traffic going to and from network interfaces in your VPC. They record source/destination IPs, ports, protocol, packets, bytes, action (ACCEPT/REJECT), and timestamps. Flow logs can be published to CloudWatch Logs or S3. They're essential for troubleshooting connectivity, security analysis, and compliance auditing. They do NOT capture packet payloads.</div></div><div class="qa"><div class="q"><span class="qnum">Q31.</span>What are the limitations of VPC Flow Logs?</div><div class="a"><strong>Answer:</strong> Flow Logs do NOT capture: traffic to/from 169.254.169.254 (instance metadata), 169.254.169.123 (time sync), DHCP traffic, DNS traffic to Route 53 Resolver, and Windows license activation traffic. They also don't capture packet content — only metadata. There can be a delay of several minutes before logs appear. Enabling flow logs doesn't affect network throughput.</div></div><div class="qa"><div class="q"><span class="qnum">Q32.</span>What is AWS Network Firewall?</div><div class="a"><strong>Answer:</strong> AWS Network Firewall is a managed network security service for VPCs that provides stateful inspection, intrusion detection/prevention (IDS/IPS), and web filtering. It uses Suricata-compatible rules and supports domain-based filtering. It's deployed in dedicated firewall subnets and traffic is routed through it. It's more powerful than NACLs for deep packet inspection.</div></div><h2>5. CONNECTIVITY</h2><div class="qa"><div class="q"><span class="qnum">Q33.</span>What is VPC Peering?</div><div class="a"><strong>Answer:</strong> VPC Peering is a networking connection between two VPCs (same account, cross-account, or cross-region) that enables private IP routing between them. It's non-transitive — if VPC A peers with B and B peers with C, A cannot reach C via B. You must update route tables in both VPCs and adjust security groups. There's no bandwidth bottleneck or single point of failure.</div></div><div class="qa"><div class="q"><span class="qnum">Q34.</span>What are the limitations of VPC Peering?</div><div class="a"><strong>Answer:</strong> Key limitations: Non-transitive (no transitive routing); CIDR blocks must not overlap; maximum 125 peering connections per VPC; no edge-to-edge routing (e.g., can't use a peer's VPN or Direct Connect); no multicast support. For large-scale multi-VPC networking, AWS Transit Gateway is recommended over VPC peering due to these limitations.</div></div><div class="qa"><div class="q"><span class="qnum">Q35.</span>What is AWS Transit Gateway?</div><div class="a"><strong>Answer:</strong> AWS Transit Gateway is a hub-and-spoke network transit hub that connects VPCs and on-premises networks through a central gateway. It supports transitive routing (unlike VPC peering), scales to thousands of VPCs, supports VPN and Direct Connect attachments, route table isolation, and inter-region peering. It simplifies network architecture and reduces the number of connections needed.</div></div><div class="qa"><div class="q"><span class="qnum">Q36.</span>What is a VPC Endpoint?</div><div class="a"><strong>Answer:</strong> A VPC Endpoint allows private connectivity between your VPC and AWS services (S3, DynamoDB, etc.) without traversing the public internet. Traffic stays within the AWS network. There are two types: Gateway Endpoints (free, for S3 and DynamoDB only — route table entries) and Interface Endpoints (powered by AWS PrivateLink — ENIs with private IPs, used for most other AWS services).</div></div><div class="qa"><div class="q"><span class="qnum">Q37.</span>What is the difference between a Gateway Endpoint and an Interface Endpoint?</div><div class="a"><strong>Answer:</strong> Gateway Endpoints are free, only support S3 and DynamoDB, work by adding entries to route tables. Interface Endpoints (AWS PrivateLink) create ENIs with private IPs in your subnet, support most AWS services and custom services, work with DNS, support security groups, and have an hourly cost plus data processing charges.</div></div><div class="qa"><div class="q"><span class="qnum">Q38.</span>What is AWS PrivateLink?</div><div class="a"><strong>Answer:</strong> AWS PrivateLink provides private connectivity between VPCs and services using Interface Endpoints. It allows you to access AWS services, your own services, or third-party SaaS services without exposing traffic to the public internet. The service provider creates a VPC Endpoint Service (backed by NLB), and consumers create Interface Endpoints to connect privately.</div></div><div class="qa"><div class="q"><span class="qnum">Q39.</span>What is AWS Direct Connect?</div><div class="a"><strong>Answer:</strong> AWS Direct Connect is a dedicated private network connection between your on-premises data center and AWS. It provides more consistent network performance, lower latency, higher bandwidth (1 Gbps, 10 Gbps, 100 Gbps), and reduced data transfer costs compared to internet-based connections. It doesn't encrypt by default — use VPN over Direct Connect for encryption.</div></div><div class="qa"><div class="q"><span class="qnum">Q40.</span>What is an AWS Site-to-Site VPN?</div><div class="a"><strong>Answer:</strong> AWS Site-to-Site VPN creates an encrypted IPsec tunnel between your on-premises network (Customer Gateway) and your VPC (Virtual Private Gateway or Transit Gateway). Each VPN connection has two tunnels for redundancy. It goes over the public internet (unlike Direct Connect). It supports up to 1.25 Gbps per tunnel and is commonly used as a Direct Connect backup.</div></div><div class="qa"><div class="q"><span class="qnum">Q41.</span>What is a Virtual Private Gateway (VGW)?</div><div class="a"><strong>Answer:</strong> A Virtual Private Gateway is the VPN concentrator on the AWS side of a Site-to-Site VPN connection. It's attached to your VPC and is the endpoint for Direct Connect and VPN connections. A VGW can support multiple VPN and Direct Connect connections. Only one VGW can be attached to a VPC at a time.</div></div><div class="qa"><div class="q"><span class="qnum">Q42.</span>What is a Customer Gateway?</div><div class="a"><strong>Answer:</strong> A Customer Gateway is an AWS resource representing your on-premises VPN device (physical or software appliance). It stores the public IP address and routing configuration of your on-premises router. Together with a Virtual Private Gateway, it forms both endpoints of a Site-to-Site VPN connection.</div></div><div class="qa"><div class="q"><span class="qnum">Q43.</span>What is VPC Sharing (Resource Access Manager)?</div><div class="a"><strong>Answer:</strong> VPC Sharing, via AWS Resource Access Manager (RAM), allows you to share subnets from a central VPC with other AWS accounts in the same AWS Organization. Participants can launch resources into the shared subnets but don't own the VPC. This reduces the number of VPCs needed, simplifies network management, and allows centralized governance while enabling account-level resource isolation.</div></div><h2>6. DNS &amp; DHCP</h2><div class="qa"><div class="q"><span class="qnum">Q44.</span>What is Route 53 Resolver in VPC?</div><div class="a"><strong>Answer:</strong> Route 53 Resolver is the built-in DNS resolver for VPCs, accessible at the VPC's base CIDR +2 address (e.g., 10.0.0.2 for a 10.0.0.0/16 VPC) or via the link-local address 169.254.169.253. It resolves AWS service endpoints, internal VPC hostnames, and public DNS queries for all resources within the VPC by default.</div></div><div class="qa"><div class="q"><span class="qnum">Q45.</span>What are Route 53 Resolver Endpoints?</div><div class="a"><strong>Answer:</strong> Resolver Endpoints enable DNS resolution between VPCs and on-premises networks. Inbound Endpoints allow on-premises DNS resolvers to forward queries to Route 53 Resolver. Outbound Endpoints allow Route 53 Resolver to forward queries for specific domains to on-premises DNS servers using forwarding rules. They use ENIs in your VPC and are deployed across multiple AZs for HA.</div></div><div class="qa"><div class="q"><span class="qnum">Q46.</span>What are the VPC DNS settings (enableDnsSupport and enableDnsHostnames)?</div><div class="a"><strong>Answer:</strong> enableDnsSupport (default: true) — enables DNS resolution using the Amazon DNS server (Route 53 Resolver). If disabled, no DNS resolution occurs within the VPC. enableDnsHostnames (default: false in custom VPCs, true in default VPC) — assigns public DNS hostnames to instances with public IPs. Both must be enabled for instances to get public DNS names and for VPC Endpoint DNS to work properly.</div></div><div class="qa"><div class="q"><span class="qnum">Q47.</span>What is a DHCP Option Set?</div><div class="a"><strong>Answer:</strong> A DHCP Option Set defines DHCP options provided to instances in a VPC, including: domain-name (custom DNS suffix), domain-name-servers (custom DNS servers), ntp-servers, netbios-name-servers, and netbios-node-type. Each VPC is associated with one DHCP option set. You can create custom sets (e.g., to use on-premises DNS servers) and associate them with VPCs.</div></div><div class="qa"><div class="q"><span class="qnum">Q48.</span>What is a Private Hosted Zone in Route 53?</div><div class="a"><strong>Answer:</strong> A Private Hosted Zone is a Route 53 DNS container that holds DNS records for a domain resolvable only within specified VPCs — not publicly accessible. You associate it with one or more VPCs. It's used for internal service discovery, custom internal domains, and split-horizon DNS (same domain resolves differently inside/outside VPC).</div></div><h2>7. ADVANCED</h2><div class="qa"><div class="q"><span class="qnum">Q49.</span>What is a VPC Lattice?</div><div class="a"><strong>Answer:</strong> Amazon VPC Lattice is a fully managed application networking service that simplifies service-to-service communication across VPCs and accounts. It handles routing, load balancing, authentication, and observability for microservices without requiring complex networking configurations like VPC peering or PrivateLink. It uses service networks and target groups to abstract connectivity.</div></div><div class="qa"><div class="q"><span class="qnum">Q50.</span>What is the difference between VPC Peering and Transit Gateway?</div><div class="a"><strong>Answer:</strong> VPC Peering is a direct 1-to-1 connection, free for intra-region traffic, non-transitive, and doesn't scale well beyond ~10 VPCs. Transit Gateway is a hub connecting many VPCs and on-premises networks, supports transitive routing, centralizes management, supports route table isolation, but has an hourly attachment fee plus data processing charges. TGW is preferred at scale.</div></div><div class="qa"><div class="q"><span class="qnum">Q51.</span>What is Gateway Load Balancer (GWLB) and how is it used with VPC?</div><div class="a"><strong>Answer:</strong> Gateway Load Balancer enables you to deploy and scale third-party virtual appliances (firewalls, IDS/IPS, deep packet inspection) transparently in your network path. It uses GWLB Endpoints in your VPC and routes traffic through appliances before it reaches your application using the GENEVE protocol, enabling transparent inline inspection.</div></div><div class="qa"><div class="q"><span class="qnum">Q52.</span>What is VPC Traffic Mirroring?</div><div class="a"><strong>Answer:</strong> VPC Traffic Mirroring copies network traffic from ENIs of EC2 instances and sends it to out-of-band security and monitoring appliances. You define a mirror source (ENI), mirror target (ENI or NLB), and a filter (what traffic to copy). It's used for intrusion detection, content inspection, network forensics, and troubleshooting without affecting original traffic.</div></div><div class="qa"><div class="q"><span class="qnum">Q53.</span>What is IP Address Manager (IPAM)?</div><div class="a"><strong>Answer:</strong> AWS IPAM is a VPC feature that makes it easier to plan, track, and monitor IP addresses for AWS workloads. It automates IP assignment, prevents overlapping CIDRs across VPCs and accounts, provides visibility into IP utilization, and integrates with AWS Organizations for multi-account management.</div></div><div class="qa"><div class="q"><span class="qnum">Q54.</span>What is Bring Your Own IP (BYOIP) in AWS?</div><div class="a"><strong>Answer:</strong> BYOIP allows you to bring your own public IPv4 or IPv6 address ranges to AWS and use them in your VPC. This is useful when your applications are tied to specific public IPs (whitelisted by customers), or for maintaining consistent IPs during migration. You must prove ownership through a Route Origin Authorization (ROA) before AWS can advertise it.</div></div><div class="qa"><div class="q"><span class="qnum">Q55.</span>What is VPC Reachability Analyzer?</div><div class="a"><strong>Answer:</strong> VPC Reachability Analyzer is a network diagnostics tool that allows you to perform connectivity testing between two endpoints in your VPC without sending actual traffic. It analyzes the virtual network configuration (security groups, route tables, NACLs, peering) and produces a hop-by-hop analysis identifying exactly which component is blocking traffic.</div></div><div class="qa"><div class="q"><span class="qnum">Q56.</span>What is Network Access Analyzer?</div><div class="a"><strong>Answer:</strong> Network Access Analyzer identifies unintended network access to your AWS resources. You define network access scope (what should or shouldn't be accessible) and it analyzes your entire network configuration to find paths that violate your access requirements. Unlike Reachability Analyzer (point-to-point), it performs broad analysis to surface unexpected exposure.</div></div><div class="qa"><div class="q"><span class="qnum">Q57.</span>What is the difference between a public IP and an Elastic IP in VPC?</div><div class="a"><strong>Answer:</strong> A public IP is auto-assigned from AWS's pool — it's dynamic and changes every time the instance is stopped and started. An Elastic IP (EIP) is a static public IPv4 address that you allocate to your account and associate with instances or ENIs. EIPs persist through stop/start cycles and can be remapped between instances for failover. AWS charges for EIPs not in use.</div></div><div class="qa"><div class="q"><span class="qnum">Q58.</span>What is a secondary CIDR block in VPC?</div><div class="a"><strong>Answer:</strong> You can add up to 4 secondary CIDR blocks to a VPC to expand its IP address space without recreating it. Secondary CIDRs must not overlap with the primary CIDR, other secondary CIDRs, or CIDRs of peered VPCs. Once added, you can create subnets from the secondary CIDR range. This is useful when your primary CIDR is exhausted.</div></div><div class="qa"><div class="q"><span class="qnum">Q59.</span>What is Centralized VPC Ingress/Egress architecture?</div><div class="a"><strong>Answer:</strong> In centralized ingress/egress, all internet traffic for multiple VPCs flows through a single inspection VPC (hub) via Transit Gateway. The inspection VPC houses security appliances (firewalls, WAF). This centralizes security tooling, reduces cost by sharing appliances, simplifies compliance, and provides a single point of control for all north-south traffic.</div></div><div class="qa"><div class="q"><span class="qnum">Q60.</span>What is split-horizon DNS in VPC?</div><div class="a"><strong>Answer:</strong> Split-horizon DNS (split-view DNS) serves different DNS answers for the same domain name depending on the requester's location. For example, api.example.com resolves to a private IP for requests from within the VPC (Route 53 Private Hosted Zone) and to a public IP for external requests (public hosted zone). This enables internal routing efficiency while maintaining external accessibility.</div></div><h2>8. TROUBLESHOOTING</h2><div class="qa"><div class="q"><span class="qnum">Q61.</span>An EC2 instance in a private subnet cannot access the internet. How do you troubleshoot?</div><div class="a"><strong>Answer:</strong> Check: 1) NAT Gateway exists and is in a public subnet; 2) Route table of the private subnet has a 0.0.0.0/0 route pointing to the NAT Gateway; 3) The public subnet's route table has a 0.0.0.0/0 route to the Internet Gateway; 4) Security groups on the instance allow outbound traffic; 5) NACL of the private subnet allows outbound traffic and inbound return traffic (ephemeral ports 1024-65535); 6) NAT Gateway status is 'Available'.</div></div><div class="qa"><div class="q"><span class="qnum">Q62.</span>Two EC2 instances in the same VPC cannot communicate. How do you troubleshoot?</div><div class="a"><strong>Answer:</strong> Check: 1) Both instances are in the same VPC; 2) Security group of each instance allows inbound traffic from the other; 3) NACLs of both subnets allow traffic in both directions including return traffic; 4) Route tables include the local VPC CIDR route; 5) OS-level firewalls aren't blocking; 6) Use VPC Reachability Analyzer to trace the path.</div></div><div class="qa"><div class="q"><span class="qnum">Q63.</span>VPC peering is set up but instances can't communicate across peered VPCs. What's wrong?</div><div class="a"><strong>Answer:</strong> Common causes: 1) Route tables in both VPCs don't have routes for the peer's CIDR pointing to the peering connection; 2) Security groups don't allow traffic from the peer VPC's CIDR; 3) NACLs are blocking traffic; 4) Overlapping CIDR blocks; 5) Peering connection status is not 'Active'; 6) Cross-account or cross-region peering requires acceptance and proper permissions.</div></div><div class="qa"><div class="q"><span class="qnum">Q64.</span>How do you diagnose network issues using VPC Flow Logs?</div><div class="a"><strong>Answer:</strong> Enable Flow Logs on the VPC/subnet/ENI and publish to CloudWatch Logs or S3. Look for REJECT entries to identify blocked traffic — these indicate security group or NACL denials. Filter by source/destination IP and port. If you see ACCEPT but connection still fails, the issue may be at the OS level. Use CloudWatch Insights or Athena to analyze logs efficiently at scale.</div></div><div class="qa"><div class="q"><span class="qnum">Q65.</span>An RDS instance in a private subnet is not accessible from an EC2 instance. How do you fix it?</div><div class="a"><strong>Answer:</strong> Check: 1) RDS and EC2 are in the same VPC; 2) RDS security group has an inbound rule allowing the DB port from the EC2's security group or IP; 3) EC2 security group allows outbound traffic to the RDS port; 4) NACLs in both subnets allow the traffic (both directions); 5) RDS subnet group includes the correct VPC; 6) Correct endpoint/hostname being used.</div></div><div class="qa"><div class="q"><span class="qnum">Q66.</span>How do you check if a VPC NACL is blocking traffic?</div><div class="a"><strong>Answer:</strong> NACLs are evaluated in ascending rule order and are stateless. To debug: 1) Check inbound rules — ensure there's an ALLOW rule for the traffic's source IP and port before any DENY rule; 2) Check outbound rules — explicitly allow return traffic on ephemeral ports (1024-65535); 3) Look at the * (default) rule — custom NACLs deny all by default; 4) Use VPC Flow Logs and filter for REJECT to confirm NACL is the blocker.</div></div><div class="qa"><div class="q"><span class="qnum">Q67.</span>A new EC2 instance cannot be assigned a public IP even though auto-assign is enabled. Why?</div><div class="a"><strong>Answer:</strong> Possible reasons: 1) The instance was launched in a private subnet (no route to IGW); 2) Auto-assign public IP was disabled at launch time (instance-level setting overrides subnet setting); 3) The instance has a manually specified Elastic IP which conflicts; 4) You tried to assign a public IP to an instance with multiple network interfaces — AWS only auto-assigns to instances with a single ENI; 5) The subnet's auto-assign setting was changed after launch — it only applies to new instances.</div></div></div>
+<script>
+const sections = [
+  { title: "1. BASICS", items: [
+    ["What is Amazon VPC?","Amazon VPC (Virtual Private Cloud) is a logically isolated section of the AWS cloud where you can launch AWS resources in a virtual network that you define. You have complete control over your virtual networking environment, including selection of your IP address range, creation of subnets, and configuration of route tables and network gateways."],
+    ["What is the difference between a Default VPC and a Custom VPC?","A Default VPC is automatically created by AWS in each region for every account. It comes pre-configured with a /16 IPv4 CIDR (172.31.0.0/16), a default subnet in each AZ, an Internet Gateway, a default route table, and a default security group — ready for immediate use. A Custom VPC is one you create manually with full control over CIDR, subnets, routing, and security settings. Custom VPCs are preferred for production workloads."],
+    ["What is a CIDR block in VPC?","CIDR (Classless Inter-Domain Routing) is a method for allocating IP addresses. In VPC, you assign a CIDR block (e.g., 10.0.0.0/16) to define the IP address range for the VPC. The /16 means 65,536 possible IP addresses. You can assign a primary CIDR of /16 to /28 size. You can also add up to 4 secondary CIDR blocks to a VPC."],
+    ["What are the allowed CIDR block sizes for a VPC?","AWS allows VPC CIDR blocks ranging from /16 (65,536 IPs) to /28 (16 IPs). The CIDR block must be from the private IPv4 ranges: 10.0.0.0/8, 172.16.0.0/12, or 192.168.0.0/16 (RFC 1918). You can also use publicly routable addresses, but private ranges are recommended. You cannot change the primary CIDR once created."],
+    ["How many VPCs can you create per region by default?","By default, you can create up to 5 VPCs per region per AWS account. This is a soft limit and can be increased by submitting a request to AWS Support. Other default limits include 200 subnets per VPC, 200 route tables per VPC, 500 security groups per VPC, and 5 Elastic IP addresses per region."],
+    ["What is a Tenancy option in VPC?","VPC tenancy determines how EC2 instances run on physical hardware. Default tenancy means instances run on shared hardware (cost-effective). Dedicated tenancy means all instances in the VPC run on single-tenant dedicated hardware (more expensive, used for compliance). You can set tenancy at VPC level (applies to all instances) or override at instance launch."],
+    ["Can you modify a VPC's CIDR block after creation?","You cannot modify or delete the primary CIDR block of a VPC after creation. However, you can add up to 4 secondary CIDR blocks to expand the VPC's IP range. Secondary CIDRs must not overlap with existing CIDRs in the VPC or with CIDRs in any connected networks. You can remove secondary CIDRs if no subnets are using them."],
+    ["What is an IPv6 VPC?","You can optionally assign an IPv6 CIDR block (/56) to your VPC and /64 blocks to subnets. IPv6 addresses are globally unique and public by default. Unlike IPv4, there is no NAT for IPv6 — you use an Egress-Only Internet Gateway for outbound-only IPv6 access. IPv6 support is opt-in and can be added to existing VPCs."],
+    ["What are the components of a VPC?","Key VPC components include: Subnets (public/private), Route Tables, Internet Gateway (IGW), NAT Gateway/Instance, Virtual Private Gateway (VGW), VPC Peering, Security Groups, Network ACLs (NACLs), VPC Endpoints, DHCP Option Sets, Elastic IPs, Flow Logs, and Transit Gateway for multi-VPC connectivity."],
+    ["Is VPC region-specific or AZ-specific?","A VPC is region-specific — it spans all Availability Zones within a region. However, subnets within a VPC are AZ-specific — each subnet resides in exactly one AZ. To achieve high availability, you create subnets in multiple AZs and distribute your resources across them."],
+  ]},
+  { title: "2. SUBNETS", items: [
+    ["What is a subnet in a VPC?","A subnet is a subdivision of a VPC's IP address range within a single Availability Zone. Subnets allow you to segment your VPC for different tiers (web, app, database) and control routing and access. Each subnet must be associated with a route table and a Network ACL. Subnets cannot span multiple AZs."],
+    ["What is the difference between a public and private subnet?","A public subnet has a route to an Internet Gateway (0.0.0.0/0 → IGW) in its route table, enabling direct internet connectivity for instances with public IPs. A private subnet has no route to an IGW — instances can only access the internet via a NAT Gateway. Private subnets are used for databases, app servers, and internal services."],
+    ["How many IP addresses does AWS reserve in each subnet?","AWS reserves 5 IP addresses in every subnet: the network address (.0), VPC router (.1), DNS server (.2), reserved for future use (.3), and the broadcast address (last IP). For example, a /24 subnet (256 addresses) has only 251 usable IPs. Always account for these 5 reserved addresses when sizing subnets."],
+    ["What is a subnet CIDR and how do you size it?","A subnet CIDR is a subset of the VPC CIDR that defines the IP range for that subnet. Sizing depends on the number of resources you plan to host. For example, a /24 gives 251 usable IPs, /25 gives 123, /26 gives 59. Best practice is to size subnets generously to allow for growth, and to make private subnets larger than public ones since most resources live there."],
+    ["What is an isolated (protected) subnet?","An isolated subnet (sometimes called a protected or database subnet) has no route to either an Internet Gateway or a NAT Gateway — it has no outbound internet access at all. It communicates only within the VPC. This is the highest security tier, used for databases and highly sensitive workloads that should never reach the internet."],
+    ["Can a subnet span multiple Availability Zones?","No. Each subnet is confined to a single Availability Zone. To achieve multi-AZ redundancy, you create separate subnets in each AZ. For example, in a 3-tier architecture across 3 AZs, you would create 9 subnets total: 3 public, 3 private (app tier), and 3 private (database tier) — one of each type per AZ."],
+    ["What is auto-assign public IP for subnets?","Each subnet has an 'auto-assign public IPv4 address' setting. When enabled, instances launched in that subnet automatically receive a public IPv4 address in addition to their private IP. This is typically enabled only for public subnets. The default VPC has this enabled for all subnets. In custom VPCs, it is disabled by default."],
+  ]},
+  { title: "3. ROUTING", items: [
+    ["What is a Route Table in VPC?","A route table contains a set of rules (routes) that determine where network traffic from your subnet or gateway is directed. Each route has a destination (CIDR) and a target (IGW, NAT GW, VPC Peering connection, etc.). Every subnet must be associated with a route table. If not explicitly associated, the subnet uses the VPC's main route table."],
+    ["What is the Main Route Table vs Custom Route Tables?","The Main Route Table is automatically created with the VPC and is the default for all subnets not explicitly associated with another route table. Custom Route Tables are ones you create and associate with specific subnets. Best practice is to leave the main route table private (no IGW route) and create custom route tables for public subnets."],
+    ["What is the local route in a route table?","Every route table automatically contains a local route for the VPC CIDR (e.g., 10.0.0.0/16 → local). This route enables communication between all resources within the VPC. It cannot be deleted or modified. Traffic destined for any IP within the VPC CIDR is automatically routed locally, regardless of other routes."],
+    ["What is an Internet Gateway (IGW)?","An Internet Gateway is a horizontally scaled, redundant, and highly available VPC component that enables communication between the VPC and the internet. It serves two purposes: providing a target in route tables for internet-routable traffic, and performing NAT for instances with public IPv4 addresses. Only one IGW can be attached to a VPC at a time."],
+    ["What is a NAT Gateway and how does it work?","A NAT (Network Address Translation) Gateway allows instances in private subnets to initiate outbound connections to the internet while preventing inbound connections. It replaces the source private IP with its own Elastic IP. NAT Gateways are managed by AWS, highly available within an AZ, and support up to 45 Gbps. You must deploy one per AZ for HA."],
+    ["What is the difference between NAT Gateway and Internet Gateway?","An Internet Gateway enables two-way communication (inbound + outbound) between the VPC and internet, used by public subnet instances. A NAT Gateway enables only outbound-initiated traffic from private subnet instances — it prevents inbound connections. IGW requires a public IP on the instance; NAT Gateway uses its own Elastic IP to masquerade private IPs."],
+    ["What is an Egress-Only Internet Gateway?","An Egress-Only Internet Gateway is used for IPv6 traffic to allow outbound-only internet access from private IPv6-addressed instances, similar to how a NAT Gateway works for IPv4. It blocks inbound IPv6 connections from the internet. It is stateful and does not require NAT — IPv6 addresses are publicly routable but the EIGW controls direction."],
+    ["What is the most specific route rule in AWS routing?","AWS uses longest prefix match (most specific route) to determine how to route traffic. For example, if a route table has routes for 10.0.0.0/16 (VPC peering) and 0.0.0.0/0 (IGW), traffic to 10.0.1.5 matches the more specific /16 and goes through peering. More specific (longer) prefixes always take priority."],
+  ]},
+  { title: "4. SECURITY", items: [
+    ["What are Security Groups in VPC?","Security Groups are stateful virtual firewalls at the ENI (instance) level. They control inbound and outbound traffic using allow rules only — there are no deny rules. Being stateful means return traffic is automatically allowed. Rules reference IP CIDRs, port ranges, protocols, or other security group IDs. Changes apply immediately to all associated instances."],
+    ["What are Network ACLs (NACLs)?","Network ACLs are stateless firewalls at the subnet level. They evaluate both inbound and outbound rules independently. Unlike Security Groups, NACLs support both allow and deny rules, evaluated in ascending rule number order (lowest first). Because they're stateless, you must explicitly allow return traffic. Each subnet can be associated with only one NACL."],
+    ["What is the key difference between Security Groups and NACLs?","Security Groups: stateful (return traffic auto-allowed), instance-level, allow rules only, all rules evaluated together, support up to 60 inbound + 60 outbound rules. NACLs: stateless (must allow return traffic explicitly), subnet-level, allow AND deny rules, rules evaluated in number order, each subnet has exactly one NACL. NACLs are good for blocking specific IPs across a subnet."],
+    ["What is the default NACL behavior?","The default NACL (auto-created with each VPC) allows all inbound and outbound traffic (rule 100: allow all, and a * rule: deny all remaining). When you create a custom NACL, it starts with only a * DENY ALL rule for both inbound and outbound — meaning all traffic is denied until you add explicit allow rules."],
+    ["What are VPC Flow Logs?","VPC Flow Logs capture metadata about IP traffic going to and from network interfaces in your VPC. They record source/destination IPs, ports, protocol, packets, bytes, action (ACCEPT/REJECT), and timestamps. Flow logs can be published to CloudWatch Logs or S3. They're essential for troubleshooting connectivity, security analysis, and compliance auditing. They do NOT capture packet payloads."],
+    ["What are the limitations of VPC Flow Logs?","Flow Logs do NOT capture: traffic to/from 169.254.169.254 (instance metadata), 169.254.169.123 (time sync), DHCP traffic, DNS traffic to Route 53 Resolver, and Windows license activation traffic. They also don't capture packet content — only metadata. There can be a delay of several minutes before logs appear. Enabling flow logs doesn't affect network throughput."],
+    ["What is AWS Network Firewall?","AWS Network Firewall is a managed network security service for VPCs that provides stateful inspection, intrusion detection/prevention (IDS/IPS), and web filtering. It uses Suricata-compatible rules and supports domain-based filtering. It's deployed in dedicated firewall subnets and traffic is routed through it. It's more powerful than NACLs for deep packet inspection."],
+  ]},
+  { title: "5. CONNECTIVITY", items: [
+    ["What is VPC Peering?","VPC Peering is a networking connection between two VPCs (same account, cross-account, or cross-region) that enables private IP routing between them. It's non-transitive — if VPC A peers with B and B peers with C, A cannot reach C via B. You must update route tables in both VPCs and adjust security groups. There's no bandwidth bottleneck or single point of failure."],
+    ["What are the limitations of VPC Peering?","Key limitations: Non-transitive (no transitive routing); CIDR blocks must not overlap; maximum 125 peering connections per VPC; no edge-to-edge routing (e.g., can't use a peer's VPN or Direct Connect); no multicast support. For large-scale multi-VPC networking, AWS Transit Gateway is recommended over VPC peering due to these limitations."],
+    ["What is AWS Transit Gateway?","AWS Transit Gateway is a hub-and-spoke network transit hub that connects VPCs and on-premises networks through a central gateway. It supports transitive routing (unlike VPC peering), scales to thousands of VPCs, supports VPN and Direct Connect attachments, route table isolation, and inter-region peering. It simplifies network architecture and reduces the number of connections needed."],
+    ["What is a VPC Endpoint?","A VPC Endpoint allows private connectivity between your VPC and AWS services (S3, DynamoDB, etc.) without traversing the public internet. Traffic stays within the AWS network. There are two types: Gateway Endpoints (free, for S3 and DynamoDB only — route table entries) and Interface Endpoints (powered by AWS PrivateLink — ENIs with private IPs, used for most other AWS services)."],
+    ["What is the difference between a Gateway Endpoint and an Interface Endpoint?","Gateway Endpoints are free, only support S3 and DynamoDB, work by adding entries to route tables. Interface Endpoints (AWS PrivateLink) create ENIs with private IPs in your subnet, support most AWS services and custom services, work with DNS, support security groups, and have an hourly cost plus data processing charges."],
+    ["What is AWS PrivateLink?","AWS PrivateLink provides private connectivity between VPCs and services using Interface Endpoints. It allows you to access AWS services, your own services, or third-party SaaS services without exposing traffic to the public internet. The service provider creates a VPC Endpoint Service (backed by NLB), and consumers create Interface Endpoints to connect privately."],
+    ["What is AWS Direct Connect?","AWS Direct Connect is a dedicated private network connection between your on-premises data center and AWS. It provides more consistent network performance, lower latency, higher bandwidth (1 Gbps, 10 Gbps, 100 Gbps), and reduced data transfer costs compared to internet-based connections. It doesn't encrypt by default — use VPN over Direct Connect for encryption."],
+    ["What is an AWS Site-to-Site VPN?","AWS Site-to-Site VPN creates an encrypted IPsec tunnel between your on-premises network (Customer Gateway) and your VPC (Virtual Private Gateway or Transit Gateway). Each VPN connection has two tunnels for redundancy. It goes over the public internet (unlike Direct Connect). It supports up to 1.25 Gbps per tunnel and is commonly used as a Direct Connect backup."],
+    ["What is a Virtual Private Gateway (VGW)?","A Virtual Private Gateway is the VPN concentrator on the AWS side of a Site-to-Site VPN connection. It's attached to your VPC and is the endpoint for Direct Connect and VPN connections. A VGW can support multiple VPN and Direct Connect connections. Only one VGW can be attached to a VPC at a time."],
+    ["What is a Customer Gateway?","A Customer Gateway is an AWS resource representing your on-premises VPN device (physical or software appliance). It stores the public IP address and routing configuration of your on-premises router. Together with a Virtual Private Gateway, it forms both endpoints of a Site-to-Site VPN connection."],
+    ["What is VPC Sharing (Resource Access Manager)?","VPC Sharing, via AWS Resource Access Manager (RAM), allows you to share subnets from a central VPC with other AWS accounts in the same AWS Organization. Participants can launch resources into the shared subnets but don't own the VPC. This reduces the number of VPCs needed, simplifies network management, and allows centralized governance while enabling account-level resource isolation."],
+  ]},
+  { title: "6. DNS & DHCP", items: [
+    ["What is Route 53 Resolver in VPC?","Route 53 Resolver is the built-in DNS resolver for VPCs, accessible at the VPC's base CIDR +2 address (e.g., 10.0.0.2 for a 10.0.0.0/16 VPC) or via the link-local address 169.254.169.253. It resolves AWS service endpoints, internal VPC hostnames, and public DNS queries for all resources within the VPC by default."],
+    ["What are Route 53 Resolver Endpoints?","Resolver Endpoints enable DNS resolution between VPCs and on-premises networks. Inbound Endpoints allow on-premises DNS resolvers to forward queries to Route 53 Resolver. Outbound Endpoints allow Route 53 Resolver to forward queries for specific domains to on-premises DNS servers using forwarding rules. They use ENIs in your VPC and are deployed across multiple AZs for HA."],
+    ["What are the VPC DNS settings (enableDnsSupport and enableDnsHostnames)?","enableDnsSupport (default: true) — enables DNS resolution using the Amazon DNS server (Route 53 Resolver). If disabled, no DNS resolution occurs within the VPC. enableDnsHostnames (default: false in custom VPCs, true in default VPC) — assigns public DNS hostnames to instances with public IPs. Both must be enabled for instances to get public DNS names and for VPC Endpoint DNS to work properly."],
+    ["What is a DHCP Option Set?","A DHCP Option Set defines DHCP options provided to instances in a VPC, including: domain-name (custom DNS suffix), domain-name-servers (custom DNS servers), ntp-servers, netbios-name-servers, and netbios-node-type. Each VPC is associated with one DHCP option set. You can create custom sets (e.g., to use on-premises DNS servers) and associate them with VPCs."],
+    ["What is a Private Hosted Zone in Route 53?","A Private Hosted Zone is a Route 53 DNS container that holds DNS records for a domain resolvable only within specified VPCs — not publicly accessible. You associate it with one or more VPCs. It's used for internal service discovery, custom internal domains, and split-horizon DNS (same domain resolves differently inside/outside VPC)."],
+  ]},
+  { title: "7. ADVANCED", items: [
+    ["What is a VPC Lattice?","Amazon VPC Lattice is a fully managed application networking service that simplifies service-to-service communication across VPCs and accounts. It handles routing, load balancing, authentication, and observability for microservices without requiring complex networking configurations like VPC peering or PrivateLink. It uses service networks and target groups to abstract connectivity."],
+    ["What is the difference between VPC Peering and Transit Gateway?","VPC Peering is a direct 1-to-1 connection, free for intra-region traffic, non-transitive, and doesn't scale well beyond ~10 VPCs. Transit Gateway is a hub connecting many VPCs and on-premises networks, supports transitive routing, centralizes management, supports route table isolation, but has an hourly attachment fee plus data processing charges. TGW is preferred at scale."],
+    ["What is Gateway Load Balancer (GWLB) and how is it used with VPC?","Gateway Load Balancer enables you to deploy and scale third-party virtual appliances (firewalls, IDS/IPS, deep packet inspection) transparently in your network path. It uses GWLB Endpoints in your VPC and routes traffic through appliances before it reaches your application using the GENEVE protocol, enabling transparent inline inspection."],
+    ["What is VPC Traffic Mirroring?","VPC Traffic Mirroring copies network traffic from ENIs of EC2 instances and sends it to out-of-band security and monitoring appliances. You define a mirror source (ENI), mirror target (ENI or NLB), and a filter (what traffic to copy). It's used for intrusion detection, content inspection, network forensics, and troubleshooting without affecting original traffic."],
+    ["What is IP Address Manager (IPAM)?","AWS IPAM is a VPC feature that makes it easier to plan, track, and monitor IP addresses for AWS workloads. It automates IP assignment, prevents overlapping CIDRs across VPCs and accounts, provides visibility into IP utilization, and integrates with AWS Organizations for multi-account management."],
+    ["What is Bring Your Own IP (BYOIP) in AWS?","BYOIP allows you to bring your own public IPv4 or IPv6 address ranges to AWS and use them in your VPC. This is useful when your applications are tied to specific public IPs (whitelisted by customers), or for maintaining consistent IPs during migration. You must prove ownership through a Route Origin Authorization (ROA) before AWS can advertise it."],
+    ["What is VPC Reachability Analyzer?","VPC Reachability Analyzer is a network diagnostics tool that allows you to perform connectivity testing between two endpoints in your VPC without sending actual traffic. It analyzes the virtual network configuration (security groups, route tables, NACLs, peering) and produces a hop-by-hop analysis identifying exactly which component is blocking traffic."],
+    ["What is Network Access Analyzer?","Network Access Analyzer identifies unintended network access to your AWS resources. You define network access scope (what should or shouldn't be accessible) and it analyzes your entire network configuration to find paths that violate your access requirements. Unlike Reachability Analyzer (point-to-point), it performs broad analysis to surface unexpected exposure."],
+    ["What is the difference between a public IP and an Elastic IP in VPC?","A public IP is auto-assigned from AWS's pool — it's dynamic and changes every time the instance is stopped and started. An Elastic IP (EIP) is a static public IPv4 address that you allocate to your account and associate with instances or ENIs. EIPs persist through stop/start cycles and can be remapped between instances for failover. AWS charges for EIPs not in use."],
+    ["What is a secondary CIDR block in VPC?","You can add up to 4 secondary CIDR blocks to a VPC to expand its IP address space without recreating it. Secondary CIDRs must not overlap with the primary CIDR, other secondary CIDRs, or CIDRs of peered VPCs. Once added, you can create subnets from the secondary CIDR range. This is useful when your primary CIDR is exhausted."],
+    ["What is Centralized VPC Ingress/Egress architecture?","In centralized ingress/egress, all internet traffic for multiple VPCs flows through a single inspection VPC (hub) via Transit Gateway. The inspection VPC houses security appliances (firewalls, WAF). This centralizes security tooling, reduces cost by sharing appliances, simplifies compliance, and provides a single point of control for all north-south traffic."],
+    ["What is split-horizon DNS in VPC?","Split-horizon DNS (split-view DNS) serves different DNS answers for the same domain name depending on the requester's location. For example, api.example.com resolves to a private IP for requests from within the VPC (Route 53 Private Hosted Zone) and to a public IP for external requests (public hosted zone). This enables internal routing efficiency while maintaining external accessibility."],
+  ]},
+  { title: "8. TROUBLESHOOTING", items: [
+    ["An EC2 instance in a private subnet cannot access the internet. How do you troubleshoot?","Check: 1) NAT Gateway exists and is in a public subnet; 2) Route table of the private subnet has a 0.0.0.0/0 route pointing to the NAT Gateway; 3) The public subnet's route table has a 0.0.0.0/0 route to the Internet Gateway; 4) Security groups on the instance allow outbound traffic; 5) NACL of the private subnet allows outbound traffic and inbound return traffic (ephemeral ports 1024-65535); 6) NAT Gateway status is 'Available'."],
+    ["Two EC2 instances in the same VPC cannot communicate. How do you troubleshoot?","Check: 1) Both instances are in the same VPC; 2) Security group of each instance allows inbound traffic from the other; 3) NACLs of both subnets allow traffic in both directions including return traffic; 4) Route tables include the local VPC CIDR route; 5) OS-level firewalls aren't blocking; 6) Use VPC Reachability Analyzer to trace the path."],
+    ["VPC peering is set up but instances can't communicate across peered VPCs. What's wrong?","Common causes: 1) Route tables in both VPCs don't have routes for the peer's CIDR pointing to the peering connection; 2) Security groups don't allow traffic from the peer VPC's CIDR; 3) NACLs are blocking traffic; 4) Overlapping CIDR blocks; 5) Peering connection status is not 'Active'; 6) Cross-account or cross-region peering requires acceptance and proper permissions."],
+    ["How do you diagnose network issues using VPC Flow Logs?","Enable Flow Logs on the VPC/subnet/ENI and publish to CloudWatch Logs or S3. Look for REJECT entries to identify blocked traffic — these indicate security group or NACL denials. Filter by source/destination IP and port. If you see ACCEPT but connection still fails, the issue may be at the OS level. Use CloudWatch Insights or Athena to analyze logs efficiently at scale."],
+    ["An RDS instance in a private subnet is not accessible from an EC2 instance. How do you fix it?","Check: 1) RDS and EC2 are in the same VPC; 2) RDS security group has an inbound rule allowing the DB port from the EC2's security group or IP; 3) EC2 security group allows outbound traffic to the RDS port; 4) NACLs in both subnets allow the traffic (both directions); 5) RDS subnet group includes the correct VPC; 6) Correct endpoint/hostname being used."],
+    ["How do you check if a VPC NACL is blocking traffic?","NACLs are evaluated in ascending rule order and are stateless. To debug: 1) Check inbound rules — ensure there's an ALLOW rule for the traffic's source IP and port before any DENY rule; 2) Check outbound rules — explicitly allow return traffic on ephemeral ports (1024-65535); 3) Look at the * (default) rule — custom NACLs deny all by default; 4) Use VPC Flow Logs and filter for REJECT to confirm NACL is the blocker."],
+    ["A new EC2 instance cannot be assigned a public IP even though auto-assign is enabled. Why?","Possible reasons: 1) The instance was launched in a private subnet (no route to IGW); 2) Auto-assign public IP was disabled at launch time (instance-level setting overrides subnet setting); 3) The instance has a manually specified Elastic IP which conflicts; 4) You tried to assign a public IP to an instance with multiple network interfaces — AWS only auto-assigns to instances with a single ENI; 5) The subnet's auto-assign setting was changed after launch — it only applies to new instances."],
+  ]},
+];
+
+let qNum = 1;
+const container = document.getElementById("content");
+sections.forEach(section => {
+  const h2 = document.createElement("h2");
+  h2.textContent = section.title;
+  container.appendChild(h2);
+  section.items.forEach(([q, a]) => {
+    const div = document.createElement("div");
+    div.className = "qa";
+    div.innerHTML = `<div class="q"><span class="qnum">Q${qNum}.</span>${q}</div><div class="a"><strong>Answer:</strong> ${a}</div>`;
+    container.appendChild(div);
+    qNum++;
+  });
+});
+
+window.onload = function() {
+  const html = document.documentElement.outerHTML;
+  const blob = new Blob([html], { type: "application/msword" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "AWS_VPC_Interview_QA.doc";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+</script>
+
+
+</body></html>

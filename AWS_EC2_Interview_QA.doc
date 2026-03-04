@@ -1,0 +1,420 @@
+<html><head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.13/html-to-image.min.js" integrity="sha512-iZ2ORl595Wx6miw+GuadDet4WQbdSWS3JLMoNfY8cRGoEFy6oT3G9IbcrBeL6AfkgpA51ETt/faX6yLV+/gFJg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script>
+      (function() {
+        const originalConsole = window.console;
+        window.console = {
+          log: (...args) => {
+            originalConsole.log(...args);
+            window.parent.postMessage({ type: 'console', message: args.join(' ') }, '*');
+          },
+          error: (...args) => {
+            originalConsole.error(...args);
+            window.parent.postMessage({ type: 'console', message: 'Error: ' + args.join(' ') }, '*');
+          },
+          warn: (...args) => {
+            originalConsole.warn(...args);
+            window.parent.postMessage({ type: 'console', message: 'Warning: ' + args.join(' ') }, '*');
+          }
+        };
+
+        let requestId = 0;
+        let callbacksMap = new Map();
+        let streamControllers = new Map();
+        
+        window.claude = {
+          complete: (prompt) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'claudeComplete', id, prompt }, '*');
+            });
+          }
+        };
+
+        window.storage = {
+          get: (key, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'storageGet', id, key, shared }, '*');
+            });
+          },
+          set: (key, value, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'storageSet', id, key, value, shared }, '*');
+            });
+          },
+          delete: (key, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'storageDelete', id, key, shared }, '*');
+            });
+          },
+          list: (prefix, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'storageList', id, prefix, shared }, '*');
+            });
+          }
+        };
+
+        let pendingBlobs = new Map();
+        URL.createObjectURL = (blob) => {
+          // Store the blob and create an ID and URL for it
+          const blobId = `blob-${Date.now()}-${Math.random()}`;
+          pendingBlobs.set(blobId, blob);
+          return `blob-request://${blobId}`;
+        };
+
+        URL.revokeObjectURL = (url) => {
+          // Remove the blob from our store
+          const blobId = url.replace("blob-request://", "");
+          pendingBlobs.delete(blobId);
+        };
+
+        const getBlobFromURL = (url) => {
+          const blobId = url.replace("blob-request://", "");
+          return pendingBlobs.get(blobId);
+        };
+
+        // Override global fetch with streaming support
+        window.fetch = (url, init = {}) => {
+          return new Promise((resolve, reject) => {
+            const id = requestId++;
+            const channelId = `fetch-${id}-${Date.now()}`;
+            
+            callbacksMap.set(id, { 
+              resolve: (response) => {
+                // Create a ReadableStream for the response body
+                const stream = new ReadableStream({
+                  start(controller) {
+                    streamControllers.set(channelId, controller);
+                  },
+                  cancel() {
+                    streamControllers.delete(channelId);
+                  }
+                });
+                
+                // Create and return the Response with the stream
+                resolve(new Response(stream, {
+                  status: response.status,
+                  statusText: response.statusText,
+                  headers: response.headers
+                }));
+              },
+              reject,
+              channelId
+            });
+            
+            window.parent.postMessage({
+              type: 'proxyFetch',
+              id,
+              url,
+              init,
+              channelId
+            }, '*');
+          });
+        };
+
+        window.addEventListener('message', async (event) => {
+          if (event.data.type === 'takeScreenshot') {
+            const rootElement = document.getElementById('artifacts-component-root-html');
+            if (!rootElement) {
+              window.parent.postMessage({
+                type: 'screenshotError',
+                error: new Error('Root element not found'),
+              }, '*');
+            }
+            const screenshot = await htmlToImage.toPng(rootElement, {
+              imagePlaceholder:
+                "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAAXNSR0IArs4c6QAAAA1JREFUGFdjePDgwX8ACOQDoNsk0PMAAAAASUVORK5CYII=",
+            });
+            window.parent.postMessage({
+              type: 'screenshotData',
+              data: screenshot,
+            }, '*');
+          } else if (event.data.type === 'claudeComplete') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.completion);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'proxyFetchResponse') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+              callbacksMap.delete(event.data.id);
+            } else {
+              // Initial response with headers, status, etc.
+              callback.resolve({
+                status: event.data.status,
+                statusText: event.data.statusText,
+                headers: event.data.headers
+              });
+              // Don't delete the callback yet if streaming
+              if (!event.data.body) {
+                callbacksMap.delete(event.data.id);
+              }
+            }
+          } else if (event.data.type === 'proxyFetchStream') {
+            // Handle streaming data chunks
+            const controller = streamControllers.get(event.data.channelId);
+            if (controller) {
+              if (event.data.error) {
+                controller.error(new Error(event.data.error));
+                streamControllers.delete(event.data.channelId);
+              } else if (event.data.done) {
+                controller.close();
+                streamControllers.delete(event.data.channelId);
+                // Clean up the callback
+                const callback = Array.from(callbacksMap.entries()).find(
+                  ([_, value]) => value.channelId === event.data.channelId
+                );
+                if (callback) {
+                  callbacksMap.delete(callback[0]);
+                }
+              } else if (event.data.chunk) {
+                controller.enqueue(new Uint8Array(event.data.chunk));
+              }
+            }
+          } else if (event.data.type === 'storageGet') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageSet') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageDelete') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageList') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          }
+        });
+
+        window.addEventListener('click', (event) => {
+          const isEl = event.target instanceof HTMLElement;
+          if (!isEl) return;
+    
+          // find ancestor links
+          const linkEl = event.target.closest("a");
+          if (!linkEl || !linkEl.href) return;
+    
+          event.preventDefault();
+          event.stopImmediatePropagation();
+    
+          if (linkEl.href.startsWith("blob-request:")) {
+            const blob = getBlobFromURL(linkEl.href);
+            if (!blob) return;
+            void blob.arrayBuffer().then((data) => {
+              window.parent.postMessage({
+                type: "downloadFile",
+                filename: linkEl.download,
+                data,
+                mimeType: blob.type || "application/octet-stream",
+              });
+            });
+          } else if (linkEl.href.startsWith("data:")) {
+            const [header, base64Data] = linkEl.href.split(",");
+            const mimeMatch = header.match(/data:([^;]+)/);
+            const mimeType = mimeMatch ? mimeMatch[1] : "application/octet-stream";
+            const binaryString = atob(base64Data);
+            const data = Uint8Array.from(binaryString, (c) =>
+              c.charCodeAt(0),
+            ).buffer;
+            window.parent.postMessage({
+              type: "downloadFile",
+              filename: linkEl.download,
+              data,
+              mimeType,
+            });
+          } else {
+            let linkUrl;
+            try {
+              linkUrl = new URL(linkEl.href);
+            } catch (error) {
+              return;
+            }
+    
+            if (linkUrl.hostname === window.location.hostname) return;
+      
+            window.parent.postMessage({
+              type: 'openExternal',
+              href: linkEl.href,
+            }, '*');
+          }
+      });
+
+        const originalOpen = window.open;
+        window.open = function (url) {
+          window.parent.postMessage({
+            type: "openExternal",
+            href: url,
+          }, "*");
+        };
+
+        window.addEventListener('error', (event) => {
+          window.parent.postMessage({ type: 'console', message: 'Uncaught Error: ' + event.message }, '*');
+        });
+      })();
+    </script>
+  
+<meta charset="UTF-8">
+<title>AWS EC2 Interview Questions &amp; Answers</title>
+<style>
+  body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #000; margin: 40px; line-height: 1.6; }
+  h1 { font-size: 18pt; color: #C7511F; text-align: center; border-bottom: 2px solid #C7511F; padding-bottom: 8px; }
+  h2 { font-size: 13pt; color: #C7511F; background: #FFF3E0; padding: 6px 10px; border-left: 4px solid #C7511F; margin-top: 28px; }
+  .qa { margin: 12px 0 18px 0; }
+  .q { font-weight: bold; color: #1a1a1a; margin-bottom: 4px; }
+  .qnum { color: #C7511F; font-weight: bold; }
+  .a { background: #f9f9f9; border-left: 3px solid #ddd; padding: 8px 12px; color: #222; }
+  p.note { text-align:center; color: #666; font-size: 10pt; margin-bottom: 24px; }
+</style>
+</head>
+<body id="artifacts-component-root-html">
+
+<h1>☁️ AWS EC2 Interview Questions &amp; Answers</h1>
+<p class="note">60 Questions across 8 Topics — Print or save as Word Document</p>
+
+<div id="content"><h2>BASICS</h2><div class="qa"><div class="q"><span class="qnum">Q1.</span> What is Amazon EC2?</div><div class="a"><strong>Answer:</strong> Amazon EC2 (Elastic Compute Cloud) is a web service that provides resizable virtual servers (instances) in the cloud. It allows you to launch virtual machines with various OS options, configure security, networking, and storage, and scale capacity up or down based on demand — paying only for what you use.</div></div><div class="qa"><div class="q"><span class="qnum">Q2.</span> What is an EC2 instance?</div><div class="a"><strong>Answer:</strong> An EC2 instance is a virtual server running in AWS. It runs on physical hardware managed by AWS and is provisioned with CPU, memory, storage, and networking capacity. You can launch an instance from an AMI (Amazon Machine Image) and choose from various instance types.</div></div><div class="qa"><div class="q"><span class="qnum">Q3.</span> What is an AMI (Amazon Machine Image)?</div><div class="a"><strong>Answer:</strong> An AMI is a pre-configured template used to launch EC2 instances. It contains the OS, application server, and applications. AMIs can be AWS-provided, from the AWS Marketplace, or custom-built. They are region-specific but can be copied across regions.</div></div><div class="qa"><div class="q"><span class="qnum">Q4.</span> What are the different states of an EC2 instance?</div><div class="a"><strong>Answer:</strong> EC2 instance states include: Pending (starting up), Running (active and billed), Stopping (in the process of stopping), Stopped (shut down, not billed for compute but EBS is billed), Shutting-down (terminating), Terminated (deleted, cannot be restarted), and Hibernating.</div></div><div class="qa"><div class="q"><span class="qnum">Q5.</span> What is the difference between stopping and terminating an EC2 instance?</div><div class="a"><strong>Answer:</strong> Stopping an instance shuts it down temporarily — it can be restarted and retains its EBS root volume and data. Terminating an instance permanently deletes it. By default, the root EBS volume is also deleted on termination unless 'DeleteOnTermination' is set to false. Instance store data is always lost on termination.</div></div><div class="qa"><div class="q"><span class="qnum">Q6.</span> What is EC2 user data?</div><div class="a"><strong>Answer:</strong> EC2 User Data is a script (shell script or cloud-init directives) that runs automatically at instance launch time. It's used for bootstrapping tasks like installing software, updating packages, or configuring services. It runs as the root user and only executes on the first boot by default.</div></div><div class="qa"><div class="q"><span class="qnum">Q7.</span> What is EC2 instance metadata?</div><div class="a"><strong>Answer:</strong> EC2 instance metadata is data about your instance accessible from within the instance via http://169.254.169.254/latest/meta-data/. It includes instance ID, AMI ID, public IP, IAM role credentials, and more.</div></div><div class="qa"><div class="q"><span class="qnum">Q8.</span> What is the difference between EC2 and traditional on-premise servers?</div><div class="a"><strong>Answer:</strong> EC2 offers on-demand provisioning (minutes vs months), pay-as-you-go pricing, automatic scaling, no upfront hardware costs, global reach across AWS regions, and managed infrastructure. Traditional servers require upfront capital, long procurement cycles, manual scaling, and dedicated ops teams for hardware maintenance.</div></div><div class="qa"><div class="q"><span class="qnum">Q9.</span> What is a key pair in EC2?</div><div class="a"><strong>Answer:</strong> A key pair consists of a public key (stored by AWS) and a private key (downloaded by you). It is used for SSH access to Linux instances or to decrypt the Administrator password for Windows instances. AWS stores the public key on the instance, and you use the private key (.pem file) to authenticate.</div></div><div class="qa"><div class="q"><span class="qnum">Q10.</span> Can you run multiple instances from the same AMI?</div><div class="a"><strong>Answer:</strong> Yes. An AMI is a template, so you can launch any number of identical EC2 instances from it. This is the foundation for horizontal scaling — running multiple identical instances behind a load balancer to handle increased traffic.</div></div><h2>INSTANCE TYPES</h2><div class="qa"><div class="q"><span class="qnum">Q11.</span> What are the main EC2 instance type families?</div><div class="a"><strong>Answer:</strong> General Purpose (T, M series) — balanced CPU/memory; Compute Optimized (C series) — high CPU for batch/ML; Memory Optimized (R, X, z series) — large RAM for databases; Storage Optimized (I, D, H series) — high IOPS; Accelerated Computing (P, G, Inf, Trn series) — GPUs/FPGAs; HPC Optimized (Hpc series) — high-performance computing.</div></div><div class="qa"><div class="q"><span class="qnum">Q12.</span> What is a burstable instance (T-type)?</div><div class="a"><strong>Answer:</strong> T-type instances (T2, T3, T4g) use a CPU credit model. They earn CPU credits when idle and spend them when bursting above baseline. T3/T4g have 'unlimited' mode where they can sustain high CPU at extra cost. They're cost-effective for workloads with intermittent spikes like dev/test, small websites, and microservices.</div></div><div class="qa"><div class="q"><span class="qnum">Q13.</span> What is the difference between T3 and T3a instances?</div><div class="a"><strong>Answer:</strong> T3 instances use Intel processors while T3a instances use AMD EPYC processors. T3a instances are typically 10% cheaper than T3 for the same configuration, making them a good choice for cost-sensitive workloads that don't have specific CPU architecture requirements.</div></div><div class="qa"><div class="q"><span class="qnum">Q14.</span> What are Graviton-based instances?</div><div class="a"><strong>Answer:</strong> Graviton instances (e.g., T4g, M7g, C7g) are powered by AWS-designed ARM-based Graviton processors. They deliver up to 40% better price/performance than comparable x86 instances for many workloads. They support most Linux distributions and are ideal for web servers, containerized apps, and microservices.</div></div><div class="qa"><div class="q"><span class="qnum">Q15.</span> What are Spot Instances?</div><div class="a"><strong>Answer:</strong> Spot Instances let you use spare AWS capacity at up to 90% discount compared to On-Demand. However, AWS can reclaim them with a 2-minute warning when capacity is needed. They're ideal for fault-tolerant, stateless, or batch workloads like big data processing, CI/CD, rendering, and ML training.</div></div><div class="qa"><div class="q"><span class="qnum">Q16.</span> What happens when a Spot Instance is interrupted?</div><div class="a"><strong>Answer:</strong> AWS sends a 2-minute interruption notice via instance metadata and EventBridge. The instance can be terminated, stopped, or hibernated depending on your Spot request settings. Best practices include saving state regularly, using Spot with Auto Scaling groups, and having fallback to On-Demand instances.</div></div><div class="qa"><div class="q"><span class="qnum">Q17.</span> What are Reserved Instances (RIs)?</div><div class="a"><strong>Answer:</strong> Reserved Instances provide a billing discount (up to 72%) in exchange for a 1-year or 3-year commitment. Types include Standard RIs (highest discount, least flexible), Convertible RIs (can change instance family, slightly less discount), and Scheduled RIs (reserved for specific time windows).</div></div><div class="qa"><div class="q"><span class="qnum">Q18.</span> What are Savings Plans?</div><div class="a"><strong>Answer:</strong> Savings Plans offer up to 72% savings over On-Demand in exchange for committing to a specific amount of usage ($/hour) for 1 or 3 years. Compute Savings Plans are the most flexible (apply to EC2, Fargate, Lambda). EC2 Instance Savings Plans offer higher discounts but are less flexible.</div></div><div class="qa"><div class="q"><span class="qnum">Q19.</span> What are Dedicated Hosts vs Dedicated Instances?</div><div class="a"><strong>Answer:</strong> Dedicated Hosts are physical servers fully dedicated to you — you control instance placement and can use existing server-bound software licenses (e.g., Oracle, SQL Server). Dedicated Instances run on hardware dedicated to you but don't give placement control. Dedicated Hosts are more expensive but essential for compliance and BYOL licensing.</div></div><div class="qa"><div class="q"><span class="qnum">Q20.</span> What is an EC2 Bare Metal instance?</div><div class="a"><strong>Answer:</strong> Bare Metal instances (e.g., m5.metal, i3.metal) provide direct access to the underlying physical hardware without a hypervisor. They're used for workloads that need to run directly on the hardware, use their own hypervisor (nested virtualization), or require non-virtualized access for licensing/performance reasons.</div></div><h2>STORAGE</h2><div class="qa"><div class="q"><span class="qnum">Q21.</span> What storage options are available for EC2?</div><div class="a"><strong>Answer:</strong> EC2 supports: EBS (Elastic Block Store) — persistent network-attached block storage; Instance Store — ephemeral local NVMe/SSD storage physically attached to the host; EFS (Elastic File System) — shared NFS file system mountable by multiple instances; S3 — object storage accessible via API; FSx — managed Windows/Lustre/NetApp file systems.</div></div><div class="qa"><div class="q"><span class="qnum">Q22.</span> What is Amazon EBS and its volume types?</div><div class="a"><strong>Answer:</strong> EBS is persistent block storage for EC2. Volume types: gp3/gp2 (General Purpose SSD), io2/io1 (Provisioned IOPS SSD — high-performance databases), st1 (Throughput Optimized HDD — big data, logs), sc1 (Cold HDD — infrequent access, lowest cost). gp3 is the recommended default offering up to 16,000 IOPS.</div></div><div class="qa"><div class="q"><span class="qnum">Q23.</span> What is the difference between EBS and Instance Store?</div><div class="a"><strong>Answer:</strong> EBS is network-attached persistent storage — data survives reboots and stop/start cycles. Instance Store is ephemeral local storage physically attached to the host — extremely fast but data is lost on stop, termination, or hardware failure. Instance Store is ideal for temp files, buffers, caches, and scratch data.</div></div><div class="qa"><div class="q"><span class="qnum">Q24.</span> What are EBS Snapshots?</div><div class="a"><strong>Answer:</strong> EBS Snapshots are point-in-time backups of EBS volumes stored in S3. They are incremental — only changed blocks are saved after the first snapshot. Snapshots can be used to create new EBS volumes, copy volumes across AZs or regions, create AMIs, and enable disaster recovery.</div></div><div class="qa"><div class="q"><span class="qnum">Q25.</span> Can you attach multiple EBS volumes to one EC2 instance?</div><div class="a"><strong>Answer:</strong> Yes. You can attach multiple EBS volumes to a single EC2 instance. However, a standard EBS volume can only be attached to one instance at a time. The exception is EBS Multi-Attach (io1/io2 volumes), which allows attaching a single volume to up to 16 Nitro-based EC2 instances in the same AZ.</div></div><div class="qa"><div class="q"><span class="qnum">Q26.</span> What is EBS encryption?</div><div class="a"><strong>Answer:</strong> EBS encryption uses AES-256 to encrypt data at rest, in transit between EC2 and EBS, and in snapshots. Encryption is transparent and has minimal performance impact. It uses AWS KMS keys. You can enable encryption by default at the account level so all new volumes are encrypted automatically.</div></div><div class="qa"><div class="q"><span class="qnum">Q27.</span> What is Amazon EFS and when would you use it?</div><div class="a"><strong>Answer:</strong> Amazon EFS (Elastic File System) is a managed NFS file system that can be mounted on multiple EC2 instances simultaneously across multiple AZs. It automatically scales and is ideal for shared storage use cases like content management systems, web serving, home directories, and container storage.</div></div><h2>NETWORKING</h2><div class="qa"><div class="q"><span class="qnum">Q28.</span> What is a VPC and how does EC2 use it?</div><div class="a"><strong>Answer:</strong> A VPC (Virtual Private Cloud) is a logically isolated virtual network in AWS. EC2 instances must be launched within a VPC. You define the IP range (CIDR), create subnets (public/private), configure route tables, internet gateways, and NAT gateways. VPCs provide complete control over the virtual networking environment.</div></div><div class="qa"><div class="q"><span class="qnum">Q29.</span> What is the difference between a public and private subnet?</div><div class="a"><strong>Answer:</strong> A public subnet has a route to an Internet Gateway, so instances with public IPs can communicate with the internet. A private subnet has no direct internet route — instances communicate externally through a NAT Gateway (outbound only). Databases, app servers, and internal services are typically placed in private subnets for security.</div></div><div class="qa"><div class="q"><span class="qnum">Q30.</span> What is an Elastic IP address?</div><div class="a"><strong>Answer:</strong> An Elastic IP (EIP) is a static, public IPv4 address you own until you release it. Unlike default public IPs (which change on stop/start), EIPs persist. They can be remapped between instances for failover. AWS charges for EIPs that are allocated but NOT associated with a running instance.</div></div><div class="qa"><div class="q"><span class="qnum">Q31.</span> What is an ENI (Elastic Network Interface)?</div><div class="a"><strong>Answer:</strong> An ENI is a virtual network interface that can be attached to EC2 instances. Each instance has a primary ENI (eth0) with a primary private IP. You can attach additional ENIs to add secondary IPs, move network interfaces between instances, or have different security groups on each interface.</div></div><div class="qa"><div class="q"><span class="qnum">Q32.</span> What is Enhanced Networking?</div><div class="a"><strong>Answer:</strong> Enhanced Networking uses SR-IOV to deliver higher bandwidth (up to 100 Gbps), lower latency, and lower jitter compared to traditional networking. It's available on most modern instance types via Elastic Network Adapter (ENA) and is enabled by default on current-gen instances.</div></div><div class="qa"><div class="q"><span class="qnum">Q33.</span> What is a Placement Group?</div><div class="a"><strong>Answer:</strong> Placement Groups control how EC2 instances are placed on underlying hardware. Cluster — packs instances close together in one AZ for low latency (HPC); Spread — distributes across distinct hardware to reduce correlated failures (max 7 per AZ); Partition — divides into partitions on separate racks (good for Hadoop, Cassandra, Kafka).</div></div><div class="qa"><div class="q"><span class="qnum">Q34.</span> What is the difference between a NAT Gateway and NAT Instance?</div><div class="a"><strong>Answer:</strong> A NAT Gateway is a managed AWS service for outbound internet access from private subnets — highly available, scalable, and requires no maintenance. A NAT Instance is a manually configured EC2 instance performing NAT — cheaper but requires manual HA setup, patching, and scaling. NAT Gateway is the recommended approach for production.</div></div><h2>SECURITY</h2><div class="qa"><div class="q"><span class="qnum">Q35.</span> What are Security Groups in EC2?</div><div class="a"><strong>Answer:</strong> Security Groups act as virtual firewalls at the instance level. They control inbound and outbound traffic using rules based on protocol, port, and IP/CIDR. Rules are stateful — if you allow inbound traffic, the response is automatically allowed. Security Groups are associated with ENIs and can be shared across instances.</div></div><div class="qa"><div class="q"><span class="qnum">Q36.</span> What is the difference between Security Groups and NACLs?</div><div class="a"><strong>Answer:</strong> Security Groups are stateful, operate at the instance (ENI) level, support only allow rules, and evaluate all rules together. NACLs (Network ACLs) are stateless, operate at the subnet level, support both allow and deny rules, and evaluate rules in order by number. NACLs provide an additional defense layer at the subnet boundary.</div></div><div class="qa"><div class="q"><span class="qnum">Q37.</span> What is an IAM Role for EC2?</div><div class="a"><strong>Answer:</strong> An IAM Role for EC2 allows instances to securely call AWS services (S3, DynamoDB, etc.) without hardcoding credentials. The role's credentials are automatically rotated and delivered via the instance metadata service (IMDS). This is the AWS-recommended way to grant permissions to applications running on EC2.</div></div><div class="qa"><div class="q"><span class="qnum">Q38.</span> What is IMDSv2 and why is it preferred over IMDSv1?</div><div class="a"><strong>Answer:</strong> IMDSv2 uses session-oriented requests with a PUT-first flow requiring a token, protecting against SSRF (Server-Side Request Forgery) attacks and unauthorized metadata access. IMDSv1 was vulnerable to SSRF exploits. AWS recommends enforcing IMDSv2 via instance metadata options for all new instances.</div></div><div class="qa"><div class="q"><span class="qnum">Q39.</span> How do you connect securely to an EC2 instance without opening port 22?</div><div class="a"><strong>Answer:</strong> AWS Systems Manager Session Manager allows browser-based or CLI shell access to EC2 instances without opening inbound ports, managing SSH keys, or bastion hosts. The instance needs the SSM Agent and an IAM role with SSM permissions. Traffic is encrypted and sessions are logged to CloudTrail/S3 for auditing.</div></div><div class="qa"><div class="q"><span class="qnum">Q40.</span> What is AWS Inspector for EC2?</div><div class="a"><strong>Answer:</strong> Amazon Inspector is an automated vulnerability management service that continuously scans EC2 instances for software vulnerabilities (CVEs) and unintended network exposure. It integrates with SSM for agent-based scanning and generates findings with severity scores and remediation recommendations.</div></div><h2>PRICING</h2><div class="qa"><div class="q"><span class="qnum">Q41.</span> What are the EC2 pricing models?</div><div class="a"><strong>Answer:</strong> On-Demand — pay per second/hour with no commitment; Reserved Instances — 1 or 3 year commitment, up to 72% savings; Savings Plans — flexible commitment-based discount; Spot Instances — up to 90% off using spare capacity; Dedicated Hosts — physical server reservation; Capacity Reservations — reserve capacity without billing commitment.</div></div><div class="qa"><div class="q"><span class="qnum">Q42.</span> What costs do you incur for a stopped EC2 instance?</div><div class="a"><strong>Answer:</strong> When an EC2 instance is stopped, you do NOT pay for compute (CPU/RAM). However, you still pay for: attached EBS volumes, Elastic IP addresses (if not associated with a running instance), data transfer, and any other associated resources. Instance Store data is lost when stopped.</div></div><div class="qa"><div class="q"><span class="qnum">Q43.</span> How is EC2 data transfer priced?</div><div class="a"><strong>Answer:</strong> Inbound data transfer to EC2 is free. Outbound data transfer to the internet is charged in tiers. Data transfer between EC2 instances in the same AZ via private IP is free. Transfer between AZs in the same region costs ~$0.01/GB each way. Transfer between regions incurs standard inter-region rates.</div></div><div class="qa"><div class="q"><span class="qnum">Q44.</span> What is a Capacity Reservation?</div><div class="a"><strong>Answer:</strong> Capacity Reservations allow you to reserve EC2 capacity in a specific AZ for any duration without any billing commitment. You pay the On-Demand rate whether or not you use the capacity. They're used to guarantee capacity availability for critical workloads during high-demand periods.</div></div><h2>AUTO SCALING</h2><div class="qa"><div class="q"><span class="qnum">Q45.</span> What is EC2 Auto Scaling?</div><div class="a"><strong>Answer:</strong> EC2 Auto Scaling automatically adjusts the number of EC2 instances in a group based on demand or a schedule. It ensures you have the right number of instances to handle load, replaces unhealthy instances, and can span multiple AZs for high availability. It works with load balancers, CloudWatch alarms, and launch templates.</div></div><div class="qa"><div class="q"><span class="qnum">Q46.</span> What is a Launch Template vs Launch Configuration?</div><div class="a"><strong>Answer:</strong> Launch Templates are the modern, recommended way to define instance configurations for Auto Scaling. They support versioning, multiple instance types, Spot + On-Demand mix, and all current EC2 features. Launch Configurations are the legacy approach — they don't support versioning or mixed instances policy.</div></div><div class="qa"><div class="q"><span class="qnum">Q47.</span> What are the types of Auto Scaling policies?</div><div class="a"><strong>Answer:</strong> Target Tracking — maintains a metric at a target value (e.g., keep CPU at 50%); Step Scaling — scales in steps based on CloudWatch alarm thresholds; Simple Scaling — adds/removes a fixed number on alarm; Scheduled Scaling — scales at specific times; Predictive Scaling — uses ML to forecast and scale proactively.</div></div><div class="qa"><div class="q"><span class="qnum">Q48.</span> What is the cooldown period in Auto Scaling?</div><div class="a"><strong>Answer:</strong> The cooldown period is a configurable wait time (default 300 seconds) after a scaling activity completes before another scaling action can begin. It prevents Auto Scaling from launching or terminating additional instances before the effects of the previous action become visible, avoiding over-scaling.</div></div><div class="qa"><div class="q"><span class="qnum">Q49.</span> What is a lifecycle hook in Auto Scaling?</div><div class="a"><strong>Answer:</strong> Lifecycle hooks pause instance launch or termination to allow custom actions. On launch, you can run scripts (install software, register with a service) before the instance enters service. On termination, you can drain connections, back up data, or deregister from a service. The hook waits for a heartbeat signal or timeout.</div></div><div class="qa"><div class="q"><span class="qnum">Q50.</span> How does Auto Scaling decide which instance to terminate first?</div><div class="a"><strong>Answer:</strong> The default termination policy: 1) Selects the AZ with the most instances; 2) Chooses the instance with the oldest launch template/configuration; 3) Chooses the instance closest to the next billing hour. Custom policies include OldestInstance, NewestInstance, ClosestToNextInstanceHour, etc.</div></div><h2>ADVANCED</h2><div class="qa"><div class="q"><span class="qnum">Q51.</span> What is the AWS Nitro System?</div><div class="a"><strong>Answer:</strong> The Nitro System is AWS's next-generation virtualization platform that offloads hypervisor functions to dedicated hardware and software. It enables near bare-metal performance, enhanced security (no AWS operator access to instance memory), higher network/storage performance, and powers all current-gen EC2 instances like M5, C5, R5, and newer families.</div></div><div class="qa"><div class="q"><span class="qnum">Q52.</span> What is Hibernation in EC2?</div><div class="a"><strong>Answer:</strong> EC2 Hibernation saves the in-memory (RAM) state to the EBS root volume before shutting down. On restart, the RAM state is restored and processes resume where they left off. This enables faster startup compared to a full boot. Requirements: instance must be hibernation-enabled at launch, root EBS must be encrypted, and RAM must be under 150 GB.</div></div><div class="qa"><div class="q"><span class="qnum">Q53.</span> What is EC2 Image Builder?</div><div class="a"><strong>Answer:</strong> EC2 Image Builder is a fully managed service to automate the creation, maintenance, validation, and distribution of AMIs. You define pipelines with components (build steps), test stages, and distribution settings. It helps maintain patched, compliant, and up-to-date golden AMIs automatically on a schedule.</div></div><div class="qa"><div class="q"><span class="qnum">Q54.</span> What is an EC2 Fleet?</div><div class="a"><strong>Answer:</strong> EC2 Fleet lets you launch a mix of On-Demand and Spot Instances across multiple instance types, AZs, and purchase options in a single API call. It optimizes for capacity, lowest price, or diversification. It's more powerful than a Spot Fleet and integrates with Auto Scaling groups for full lifecycle management.</div></div><div class="qa"><div class="q"><span class="qnum">Q55.</span> What is CPU Credits in T-type instances?</div><div class="a"><strong>Answer:</strong> T-type instances earn CPU credits when CPU usage is below the baseline and consume them when bursting above it. Each credit equals 1 vCPU running at 100% for 1 minute. T2 has a cap on credits; T3/T4g support 'unlimited' mode to sustain bursting at an extra cost of $0.05/vCPU-hour over baseline.</div></div><div class="qa"><div class="q"><span class="qnum">Q56.</span> How do you achieve high availability for EC2?</div><div class="a"><strong>Answer:</strong> Use Multi-AZ deployment with instances spread across at least 2-3 AZs; place instances in an Auto Scaling group to replace failed instances automatically; use an Elastic Load Balancer (ALB/NLB) to distribute traffic and perform health checks; use EBS Multi-Attach or EFS for shared storage; implement Route 53 health checks for DNS-based failover.</div></div><div class="qa"><div class="q"><span class="qnum">Q57.</span> What is the difference between vertical and horizontal scaling for EC2?</div><div class="a"><strong>Answer:</strong> Vertical scaling (scale up) means changing to a larger instance type (e.g., t3.medium to t3.xlarge) for more CPU/RAM — requires a stop/start. Horizontal scaling (scale out) means adding more instances to handle load — no downtime, works with load balancers. AWS best practice favors horizontal scaling for resilience and elasticity.</div></div><div class="qa"><div class="q"><span class="qnum">Q58.</span> What is Amazon EC2 Serial Console?</div><div class="a"><strong>Answer:</strong> EC2 Serial Console provides a text-based interface to interact with an instance at the hardware level — useful for troubleshooting boot issues, kernel panics, misconfigured firewalls, or network connectivity problems when you can't SSH. It accesses the serial port of the instance and works even when the OS or network is unresponsive.</div></div><div class="qa"><div class="q"><span class="qnum">Q59.</span> What are EC2 instance health checks vs ELB health checks?</div><div class="a"><strong>Answer:</strong> EC2 instance health checks (used by Auto Scaling) check whether the EC2 hardware/hypervisor is healthy. ELB health checks verify whether the application running on the instance is healthy (e.g., HTTP 200 response). Auto Scaling groups can be configured to use ELB health checks to replace instances where the app is unhealthy even if the EC2 hardware is fine.</div></div><div class="qa"><div class="q"><span class="qnum">Q60.</span> How would you migrate a running EC2 instance to another region?</div><div class="a"><strong>Answer:</strong> 1) Create an AMI from the running instance; 2) Copy the AMI to the target region using the 'Copy AMI' feature; 3) Launch a new EC2 instance from the copied AMI in the target region; 4) Configure networking, security groups, and IAM in the target region; 5) Update DNS/Route 53 to point to the new instance; 6) Validate and terminate the old instance.</div></div></div>
+
+<script>
+const sections = [
+  { title: "BASICS", items: [
+    ["What is Amazon EC2?", "Amazon EC2 (Elastic Compute Cloud) is a web service that provides resizable virtual servers (instances) in the cloud. It allows you to launch virtual machines with various OS options, configure security, networking, and storage, and scale capacity up or down based on demand — paying only for what you use."],
+    ["What is an EC2 instance?", "An EC2 instance is a virtual server running in AWS. It runs on physical hardware managed by AWS and is provisioned with CPU, memory, storage, and networking capacity. You can launch an instance from an AMI (Amazon Machine Image) and choose from various instance types."],
+    ["What is an AMI (Amazon Machine Image)?", "An AMI is a pre-configured template used to launch EC2 instances. It contains the OS, application server, and applications. AMIs can be AWS-provided, from the AWS Marketplace, or custom-built. They are region-specific but can be copied across regions."],
+    ["What are the different states of an EC2 instance?", "EC2 instance states include: Pending (starting up), Running (active and billed), Stopping (in the process of stopping), Stopped (shut down, not billed for compute but EBS is billed), Shutting-down (terminating), Terminated (deleted, cannot be restarted), and Hibernating."],
+    ["What is the difference between stopping and terminating an EC2 instance?", "Stopping an instance shuts it down temporarily — it can be restarted and retains its EBS root volume and data. Terminating an instance permanently deletes it. By default, the root EBS volume is also deleted on termination unless 'DeleteOnTermination' is set to false. Instance store data is always lost on termination."],
+    ["What is EC2 user data?", "EC2 User Data is a script (shell script or cloud-init directives) that runs automatically at instance launch time. It's used for bootstrapping tasks like installing software, updating packages, or configuring services. It runs as the root user and only executes on the first boot by default."],
+    ["What is EC2 instance metadata?", "EC2 instance metadata is data about your instance accessible from within the instance via http://169.254.169.254/latest/meta-data/. It includes instance ID, AMI ID, public IP, IAM role credentials, and more."],
+    ["What is the difference between EC2 and traditional on-premise servers?", "EC2 offers on-demand provisioning (minutes vs months), pay-as-you-go pricing, automatic scaling, no upfront hardware costs, global reach across AWS regions, and managed infrastructure. Traditional servers require upfront capital, long procurement cycles, manual scaling, and dedicated ops teams for hardware maintenance."],
+    ["What is a key pair in EC2?", "A key pair consists of a public key (stored by AWS) and a private key (downloaded by you). It is used for SSH access to Linux instances or to decrypt the Administrator password for Windows instances. AWS stores the public key on the instance, and you use the private key (.pem file) to authenticate."],
+    ["Can you run multiple instances from the same AMI?", "Yes. An AMI is a template, so you can launch any number of identical EC2 instances from it. This is the foundation for horizontal scaling — running multiple identical instances behind a load balancer to handle increased traffic."],
+  ]},
+  { title: "INSTANCE TYPES", items: [
+    ["What are the main EC2 instance type families?", "General Purpose (T, M series) — balanced CPU/memory; Compute Optimized (C series) — high CPU for batch/ML; Memory Optimized (R, X, z series) — large RAM for databases; Storage Optimized (I, D, H series) — high IOPS; Accelerated Computing (P, G, Inf, Trn series) — GPUs/FPGAs; HPC Optimized (Hpc series) — high-performance computing."],
+    ["What is a burstable instance (T-type)?", "T-type instances (T2, T3, T4g) use a CPU credit model. They earn CPU credits when idle and spend them when bursting above baseline. T3/T4g have 'unlimited' mode where they can sustain high CPU at extra cost. They're cost-effective for workloads with intermittent spikes like dev/test, small websites, and microservices."],
+    ["What is the difference between T3 and T3a instances?", "T3 instances use Intel processors while T3a instances use AMD EPYC processors. T3a instances are typically 10% cheaper than T3 for the same configuration, making them a good choice for cost-sensitive workloads that don't have specific CPU architecture requirements."],
+    ["What are Graviton-based instances?", "Graviton instances (e.g., T4g, M7g, C7g) are powered by AWS-designed ARM-based Graviton processors. They deliver up to 40% better price/performance than comparable x86 instances for many workloads. They support most Linux distributions and are ideal for web servers, containerized apps, and microservices."],
+    ["What are Spot Instances?", "Spot Instances let you use spare AWS capacity at up to 90% discount compared to On-Demand. However, AWS can reclaim them with a 2-minute warning when capacity is needed. They're ideal for fault-tolerant, stateless, or batch workloads like big data processing, CI/CD, rendering, and ML training."],
+    ["What happens when a Spot Instance is interrupted?", "AWS sends a 2-minute interruption notice via instance metadata and EventBridge. The instance can be terminated, stopped, or hibernated depending on your Spot request settings. Best practices include saving state regularly, using Spot with Auto Scaling groups, and having fallback to On-Demand instances."],
+    ["What are Reserved Instances (RIs)?", "Reserved Instances provide a billing discount (up to 72%) in exchange for a 1-year or 3-year commitment. Types include Standard RIs (highest discount, least flexible), Convertible RIs (can change instance family, slightly less discount), and Scheduled RIs (reserved for specific time windows)."],
+    ["What are Savings Plans?", "Savings Plans offer up to 72% savings over On-Demand in exchange for committing to a specific amount of usage ($/hour) for 1 or 3 years. Compute Savings Plans are the most flexible (apply to EC2, Fargate, Lambda). EC2 Instance Savings Plans offer higher discounts but are less flexible."],
+    ["What are Dedicated Hosts vs Dedicated Instances?", "Dedicated Hosts are physical servers fully dedicated to you — you control instance placement and can use existing server-bound software licenses (e.g., Oracle, SQL Server). Dedicated Instances run on hardware dedicated to you but don't give placement control. Dedicated Hosts are more expensive but essential for compliance and BYOL licensing."],
+    ["What is an EC2 Bare Metal instance?", "Bare Metal instances (e.g., m5.metal, i3.metal) provide direct access to the underlying physical hardware without a hypervisor. They're used for workloads that need to run directly on the hardware, use their own hypervisor (nested virtualization), or require non-virtualized access for licensing/performance reasons."],
+  ]},
+  { title: "STORAGE", items: [
+    ["What storage options are available for EC2?", "EC2 supports: EBS (Elastic Block Store) — persistent network-attached block storage; Instance Store — ephemeral local NVMe/SSD storage physically attached to the host; EFS (Elastic File System) — shared NFS file system mountable by multiple instances; S3 — object storage accessible via API; FSx — managed Windows/Lustre/NetApp file systems."],
+    ["What is Amazon EBS and its volume types?", "EBS is persistent block storage for EC2. Volume types: gp3/gp2 (General Purpose SSD), io2/io1 (Provisioned IOPS SSD — high-performance databases), st1 (Throughput Optimized HDD — big data, logs), sc1 (Cold HDD — infrequent access, lowest cost). gp3 is the recommended default offering up to 16,000 IOPS."],
+    ["What is the difference between EBS and Instance Store?", "EBS is network-attached persistent storage — data survives reboots and stop/start cycles. Instance Store is ephemeral local storage physically attached to the host — extremely fast but data is lost on stop, termination, or hardware failure. Instance Store is ideal for temp files, buffers, caches, and scratch data."],
+    ["What are EBS Snapshots?", "EBS Snapshots are point-in-time backups of EBS volumes stored in S3. They are incremental — only changed blocks are saved after the first snapshot. Snapshots can be used to create new EBS volumes, copy volumes across AZs or regions, create AMIs, and enable disaster recovery."],
+    ["Can you attach multiple EBS volumes to one EC2 instance?", "Yes. You can attach multiple EBS volumes to a single EC2 instance. However, a standard EBS volume can only be attached to one instance at a time. The exception is EBS Multi-Attach (io1/io2 volumes), which allows attaching a single volume to up to 16 Nitro-based EC2 instances in the same AZ."],
+    ["What is EBS encryption?", "EBS encryption uses AES-256 to encrypt data at rest, in transit between EC2 and EBS, and in snapshots. Encryption is transparent and has minimal performance impact. It uses AWS KMS keys. You can enable encryption by default at the account level so all new volumes are encrypted automatically."],
+    ["What is Amazon EFS and when would you use it?", "Amazon EFS (Elastic File System) is a managed NFS file system that can be mounted on multiple EC2 instances simultaneously across multiple AZs. It automatically scales and is ideal for shared storage use cases like content management systems, web serving, home directories, and container storage."],
+  ]},
+  { title: "NETWORKING", items: [
+    ["What is a VPC and how does EC2 use it?", "A VPC (Virtual Private Cloud) is a logically isolated virtual network in AWS. EC2 instances must be launched within a VPC. You define the IP range (CIDR), create subnets (public/private), configure route tables, internet gateways, and NAT gateways. VPCs provide complete control over the virtual networking environment."],
+    ["What is the difference between a public and private subnet?", "A public subnet has a route to an Internet Gateway, so instances with public IPs can communicate with the internet. A private subnet has no direct internet route — instances communicate externally through a NAT Gateway (outbound only). Databases, app servers, and internal services are typically placed in private subnets for security."],
+    ["What is an Elastic IP address?", "An Elastic IP (EIP) is a static, public IPv4 address you own until you release it. Unlike default public IPs (which change on stop/start), EIPs persist. They can be remapped between instances for failover. AWS charges for EIPs that are allocated but NOT associated with a running instance."],
+    ["What is an ENI (Elastic Network Interface)?", "An ENI is a virtual network interface that can be attached to EC2 instances. Each instance has a primary ENI (eth0) with a primary private IP. You can attach additional ENIs to add secondary IPs, move network interfaces between instances, or have different security groups on each interface."],
+    ["What is Enhanced Networking?", "Enhanced Networking uses SR-IOV to deliver higher bandwidth (up to 100 Gbps), lower latency, and lower jitter compared to traditional networking. It's available on most modern instance types via Elastic Network Adapter (ENA) and is enabled by default on current-gen instances."],
+    ["What is a Placement Group?", "Placement Groups control how EC2 instances are placed on underlying hardware. Cluster — packs instances close together in one AZ for low latency (HPC); Spread — distributes across distinct hardware to reduce correlated failures (max 7 per AZ); Partition — divides into partitions on separate racks (good for Hadoop, Cassandra, Kafka)."],
+    ["What is the difference between a NAT Gateway and NAT Instance?", "A NAT Gateway is a managed AWS service for outbound internet access from private subnets — highly available, scalable, and requires no maintenance. A NAT Instance is a manually configured EC2 instance performing NAT — cheaper but requires manual HA setup, patching, and scaling. NAT Gateway is the recommended approach for production."],
+  ]},
+  { title: "SECURITY", items: [
+    ["What are Security Groups in EC2?", "Security Groups act as virtual firewalls at the instance level. They control inbound and outbound traffic using rules based on protocol, port, and IP/CIDR. Rules are stateful — if you allow inbound traffic, the response is automatically allowed. Security Groups are associated with ENIs and can be shared across instances."],
+    ["What is the difference between Security Groups and NACLs?", "Security Groups are stateful, operate at the instance (ENI) level, support only allow rules, and evaluate all rules together. NACLs (Network ACLs) are stateless, operate at the subnet level, support both allow and deny rules, and evaluate rules in order by number. NACLs provide an additional defense layer at the subnet boundary."],
+    ["What is an IAM Role for EC2?", "An IAM Role for EC2 allows instances to securely call AWS services (S3, DynamoDB, etc.) without hardcoding credentials. The role's credentials are automatically rotated and delivered via the instance metadata service (IMDS). This is the AWS-recommended way to grant permissions to applications running on EC2."],
+    ["What is IMDSv2 and why is it preferred over IMDSv1?", "IMDSv2 uses session-oriented requests with a PUT-first flow requiring a token, protecting against SSRF (Server-Side Request Forgery) attacks and unauthorized metadata access. IMDSv1 was vulnerable to SSRF exploits. AWS recommends enforcing IMDSv2 via instance metadata options for all new instances."],
+    ["How do you connect securely to an EC2 instance without opening port 22?", "AWS Systems Manager Session Manager allows browser-based or CLI shell access to EC2 instances without opening inbound ports, managing SSH keys, or bastion hosts. The instance needs the SSM Agent and an IAM role with SSM permissions. Traffic is encrypted and sessions are logged to CloudTrail/S3 for auditing."],
+    ["What is AWS Inspector for EC2?", "Amazon Inspector is an automated vulnerability management service that continuously scans EC2 instances for software vulnerabilities (CVEs) and unintended network exposure. It integrates with SSM for agent-based scanning and generates findings with severity scores and remediation recommendations."],
+  ]},
+  { title: "PRICING", items: [
+    ["What are the EC2 pricing models?", "On-Demand — pay per second/hour with no commitment; Reserved Instances — 1 or 3 year commitment, up to 72% savings; Savings Plans — flexible commitment-based discount; Spot Instances — up to 90% off using spare capacity; Dedicated Hosts — physical server reservation; Capacity Reservations — reserve capacity without billing commitment."],
+    ["What costs do you incur for a stopped EC2 instance?", "When an EC2 instance is stopped, you do NOT pay for compute (CPU/RAM). However, you still pay for: attached EBS volumes, Elastic IP addresses (if not associated with a running instance), data transfer, and any other associated resources. Instance Store data is lost when stopped."],
+    ["How is EC2 data transfer priced?", "Inbound data transfer to EC2 is free. Outbound data transfer to the internet is charged in tiers. Data transfer between EC2 instances in the same AZ via private IP is free. Transfer between AZs in the same region costs ~$0.01/GB each way. Transfer between regions incurs standard inter-region rates."],
+    ["What is a Capacity Reservation?", "Capacity Reservations allow you to reserve EC2 capacity in a specific AZ for any duration without any billing commitment. You pay the On-Demand rate whether or not you use the capacity. They're used to guarantee capacity availability for critical workloads during high-demand periods."],
+  ]},
+  { title: "AUTO SCALING", items: [
+    ["What is EC2 Auto Scaling?", "EC2 Auto Scaling automatically adjusts the number of EC2 instances in a group based on demand or a schedule. It ensures you have the right number of instances to handle load, replaces unhealthy instances, and can span multiple AZs for high availability. It works with load balancers, CloudWatch alarms, and launch templates."],
+    ["What is a Launch Template vs Launch Configuration?", "Launch Templates are the modern, recommended way to define instance configurations for Auto Scaling. They support versioning, multiple instance types, Spot + On-Demand mix, and all current EC2 features. Launch Configurations are the legacy approach — they don't support versioning or mixed instances policy."],
+    ["What are the types of Auto Scaling policies?", "Target Tracking — maintains a metric at a target value (e.g., keep CPU at 50%); Step Scaling — scales in steps based on CloudWatch alarm thresholds; Simple Scaling — adds/removes a fixed number on alarm; Scheduled Scaling — scales at specific times; Predictive Scaling — uses ML to forecast and scale proactively."],
+    ["What is the cooldown period in Auto Scaling?", "The cooldown period is a configurable wait time (default 300 seconds) after a scaling activity completes before another scaling action can begin. It prevents Auto Scaling from launching or terminating additional instances before the effects of the previous action become visible, avoiding over-scaling."],
+    ["What is a lifecycle hook in Auto Scaling?", "Lifecycle hooks pause instance launch or termination to allow custom actions. On launch, you can run scripts (install software, register with a service) before the instance enters service. On termination, you can drain connections, back up data, or deregister from a service. The hook waits for a heartbeat signal or timeout."],
+    ["How does Auto Scaling decide which instance to terminate first?", "The default termination policy: 1) Selects the AZ with the most instances; 2) Chooses the instance with the oldest launch template/configuration; 3) Chooses the instance closest to the next billing hour. Custom policies include OldestInstance, NewestInstance, ClosestToNextInstanceHour, etc."],
+  ]},
+  { title: "ADVANCED", items: [
+    ["What is the AWS Nitro System?", "The Nitro System is AWS's next-generation virtualization platform that offloads hypervisor functions to dedicated hardware and software. It enables near bare-metal performance, enhanced security (no AWS operator access to instance memory), higher network/storage performance, and powers all current-gen EC2 instances like M5, C5, R5, and newer families."],
+    ["What is Hibernation in EC2?", "EC2 Hibernation saves the in-memory (RAM) state to the EBS root volume before shutting down. On restart, the RAM state is restored and processes resume where they left off. This enables faster startup compared to a full boot. Requirements: instance must be hibernation-enabled at launch, root EBS must be encrypted, and RAM must be under 150 GB."],
+    ["What is EC2 Image Builder?", "EC2 Image Builder is a fully managed service to automate the creation, maintenance, validation, and distribution of AMIs. You define pipelines with components (build steps), test stages, and distribution settings. It helps maintain patched, compliant, and up-to-date golden AMIs automatically on a schedule."],
+    ["What is an EC2 Fleet?", "EC2 Fleet lets you launch a mix of On-Demand and Spot Instances across multiple instance types, AZs, and purchase options in a single API call. It optimizes for capacity, lowest price, or diversification. It's more powerful than a Spot Fleet and integrates with Auto Scaling groups for full lifecycle management."],
+    ["What is CPU Credits in T-type instances?", "T-type instances earn CPU credits when CPU usage is below the baseline and consume them when bursting above it. Each credit equals 1 vCPU running at 100% for 1 minute. T2 has a cap on credits; T3/T4g support 'unlimited' mode to sustain bursting at an extra cost of $0.05/vCPU-hour over baseline."],
+    ["How do you achieve high availability for EC2?", "Use Multi-AZ deployment with instances spread across at least 2-3 AZs; place instances in an Auto Scaling group to replace failed instances automatically; use an Elastic Load Balancer (ALB/NLB) to distribute traffic and perform health checks; use EBS Multi-Attach or EFS for shared storage; implement Route 53 health checks for DNS-based failover."],
+    ["What is the difference between vertical and horizontal scaling for EC2?", "Vertical scaling (scale up) means changing to a larger instance type (e.g., t3.medium to t3.xlarge) for more CPU/RAM — requires a stop/start. Horizontal scaling (scale out) means adding more instances to handle load — no downtime, works with load balancers. AWS best practice favors horizontal scaling for resilience and elasticity."],
+    ["What is Amazon EC2 Serial Console?", "EC2 Serial Console provides a text-based interface to interact with an instance at the hardware level — useful for troubleshooting boot issues, kernel panics, misconfigured firewalls, or network connectivity problems when you can't SSH. It accesses the serial port of the instance and works even when the OS or network is unresponsive."],
+    ["What are EC2 instance health checks vs ELB health checks?", "EC2 instance health checks (used by Auto Scaling) check whether the EC2 hardware/hypervisor is healthy. ELB health checks verify whether the application running on the instance is healthy (e.g., HTTP 200 response). Auto Scaling groups can be configured to use ELB health checks to replace instances where the app is unhealthy even if the EC2 hardware is fine."],
+    ["How would you migrate a running EC2 instance to another region?", "1) Create an AMI from the running instance; 2) Copy the AMI to the target region using the 'Copy AMI' feature; 3) Launch a new EC2 instance from the copied AMI in the target region; 4) Configure networking, security groups, and IAM in the target region; 5) Update DNS/Route 53 to point to the new instance; 6) Validate and terminate the old instance."],
+  ]},
+];
+
+let qNum = 1;
+const container = document.getElementById("content");
+sections.forEach(section => {
+  const h2 = document.createElement("h2");
+  h2.textContent = section.title;
+  container.appendChild(h2);
+  section.items.forEach(([q, a]) => {
+    const div = document.createElement("div");
+    div.className = "qa";
+    div.innerHTML = `<div class="q"><span class="qnum">Q${qNum}.</span> ${q}</div><div class="a"><strong>Answer:</strong> ${a}</div>`;
+    container.appendChild(div);
+    qNum++;
+  });
+});
+
+// Auto-download
+window.onload = function() {
+  const html = document.documentElement.outerHTML;
+  const blob = new Blob([html], { type: "application/msword" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "AWS_EC2_Interview_QA.doc";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+</script>
+
+
+</body></html>

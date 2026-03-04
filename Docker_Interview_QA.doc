@@ -1,0 +1,392 @@
+﻿
+    <html xmlns:o="urn:schemas-microsoft-com:office:office"
+          xmlns:w="urn:schemas-microsoft-com:office:word"
+          xmlns="http://www.w3.org/TR/REC-html40">
+    <head>
+      <meta charset="UTF-8">
+      <title>Docker Interview Q&A</title>
+      <!--[if gte mso 9]>
+      <xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml>
+      <![endif]-->
+      <style>
+        body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #222; margin: 1in; }
+        h1 { font-size: 22pt; color: #1a56db; text-align: center; margin-bottom: 4pt; }
+        .subtitle { text-align: center; color: #555; font-size: 11pt; margin-bottom: 20pt; }
+        h2 { font-size: 14pt; color: #fff; background: #1a56db; padding: 5pt 10pt; margin-top: 20pt; margin-bottom: 0; }
+        .qa-block { margin: 8pt 0; border-left: 4pt solid #1a56db; padding-left: 10pt; }
+        .question { font-weight: bold; color: #1a3a6e; font-size: 11pt; margin-bottom: 3pt; }
+        .answer { font-size: 10.5pt; color: #333; margin: 0; line-height: 1.5; }
+        .q-num { color: #1a56db; font-weight: bold; }
+        hr { border: none; border-top: 1pt solid #ccc; margin: 6pt 0; }
+      </style>
+    </head>
+    <body>
+      <h1>🐳 Docker Interview Questions &amp; Answers</h1>
+      <p class="subtitle">60+ Questions across 9 Categories</p>
+  <h2>Basics & Core Concepts</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q1.</span> What is Docker?</p>
+          <p class="answer"><b>Answer:</b> Docker is an open-source platform that enables developers to build, package, ship, and run applications in lightweight, portable containers. Containers bundle an application with all its dependencies, libraries, and configuration files so it runs consistently across any environment.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q2.</span> What is a Docker container?</p>
+          <p class="answer"><b>Answer:</b> A Docker container is a runnable instance of a Docker image. It is an isolated, lightweight process that runs on the host OS kernel, sharing the OS but having its own filesystem, networking, and process space. Containers are ephemeral by nature.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q3.</span> What is a Docker image?</p>
+          <p class="answer"><b>Answer:</b> A Docker image is a read-only, immutable template used to create containers. It is built in layers, where each layer represents a set of filesystem changes. Images are defined by Dockerfiles.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q4.</span> What is the difference between a container and a virtual machine (VM)?</p>
+          <p class="answer"><b>Answer:</b> VMs run a full OS with a hypervisor and have heavy resource overhead. Containers share the host OS kernel, are much lighter, start in seconds, and are more portable. VMs provide stronger isolation while containers are faster and more efficient for microservices.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q5.</span> What is a Dockerfile?</p>
+          <p class="answer"><b>Answer:</b> A Dockerfile is a text file containing a set of instructions that Docker uses to automatically build an image. Each instruction (FROM, RUN, COPY, CMD, etc.) creates a new layer in the image.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q6.</span> What is Docker Hub?</p>
+          <p class="answer"><b>Answer:</b> Docker Hub is the default public registry for Docker images. It hosts official images (like nginx, postgres, node) and user-uploaded images. You can push and pull images using docker push and docker pull.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q7.</span> What is the Docker daemon?</p>
+          <p class="answer"><b>Answer:</b> The Docker daemon (dockerd) is a background service running on the host that manages Docker objects like images, containers, networks, and volumes. It listens to Docker API requests from the Docker CLI or other clients.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q8.</span> What is Docker Engine?</p>
+          <p class="answer"><b>Answer:</b> Docker Engine is the core part of Docker — a client-server application consisting of the Docker daemon (server), a REST API, and the Docker CLI (client). It is responsible for building and running containers.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q9.</span> What is the difference between docker run and docker start?</p>
+          <p class="answer"><b>Answer:</b> docker run creates a new container from an image and starts it. docker start restarts an already-existing (stopped) container. docker run is used for the first launch; docker start brings a stopped container back up.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q10.</span> What is a Docker registry?</p>
+          <p class="answer"><b>Answer:</b> A Docker registry is a storage and distribution system for Docker images. Docker Hub is the public registry; organizations often run private registries (like AWS ECR, GCR, or self-hosted Harbor) for internal images.</p>
+        </div>
+        <hr>
+      <h2>Dockerfile & Images</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q11.</span> What are the most commonly used Dockerfile instructions?</p>
+          <p class="answer"><b>Answer:</b> FROM – base image; RUN – execute commands during build; COPY/ADD – copy files into image; CMD – default command when container starts; ENTRYPOINT – sets the executable; ENV – set environment variables; EXPOSE – documents the port; WORKDIR – sets working directory; VOLUME – defines mount points; ARG – build-time variables; LABEL – metadata.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q12.</span> What is the difference between CMD and ENTRYPOINT?</p>
+          <p class="answer"><b>Answer:</b> ENTRYPOINT defines the main executable that always runs. CMD provides default arguments to ENTRYPOINT or a default command. If you override CMD at runtime, ENTRYPOINT still runs. Best practice: use ENTRYPOINT for the main process and CMD for its default arguments.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q13.</span> What is the difference between COPY and ADD?</p>
+          <p class="answer"><b>Answer:</b> COPY simply copies files/directories from the host into the image. ADD does everything COPY does, plus it can extract tar archives and fetch files from remote URLs. Best practice is to use COPY unless you specifically need ADD's extra features.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q14.</span> What is a multi-stage build in Docker?</p>
+          <p class="answer"><b>Answer:</b> Multi-stage builds use multiple FROM statements in a Dockerfile. Earlier stages compile/build code, and the final stage copies only the necessary artifacts, discarding build tools and intermediate files. This significantly reduces the final image size and improves security.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q15.</span> How do you reduce Docker image size?</p>
+          <p class="answer"><b>Answer:</b> 1. Use a minimal base image (e.g., alpine). 2. Use multi-stage builds. 3. Combine RUN commands to reduce layers. 4. Remove unnecessary files and caches in the same RUN layer. 5. Use .dockerignore to exclude unnecessary files. 6. Avoid installing unnecessary packages.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q16.</span> What is .dockerignore?</p>
+          <p class="answer"><b>Answer:</b> A .dockerignore file lists files and directories that should be excluded from the Docker build context. This speeds up builds and prevents sensitive or unnecessary files (like node_modules, .git, secrets) from being sent to the daemon or copied into images.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q17.</span> What is image layering in Docker?</p>
+          <p class="answer"><b>Answer:</b> Docker images are built as a series of read-only layers. Each Dockerfile instruction creates a new layer. Layers are cached and reused between builds for efficiency. When a container runs, Docker adds a thin writable layer on top. Shared layers across images save disk space.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q18.</span> What is the difference between docker build and docker commit?</p>
+          <p class="answer"><b>Answer:</b> docker build creates an image from a Dockerfile in a reproducible, version-controlled way. docker commit creates an image from a running container's current state — useful for quick snapshots but considered bad practice for production images due to lack of reproducibility.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q19.</span> What is a base image?</p>
+          <p class="answer"><b>Answer:</b> A base image is the starting point for a Dockerfile, specified by the FROM instruction. It can be an OS image (ubuntu, alpine), a language runtime (node, python), or scratch (a completely empty image for building from scratch).</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q20.</span> What is the purpose of the EXPOSE instruction?</p>
+          <p class="answer"><b>Answer:</b> EXPOSE documents which port(s) the container's application listens on at runtime. It does NOT actually publish the port to the host — that is done using -p or -P flags with docker run. It serves as documentation and is used by Docker networking features.</p>
+        </div>
+        <hr>
+      <h2>Networking</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q21.</span> What are the Docker network types?</p>
+          <p class="answer"><b>Answer:</b> Bridge – default; containers on same host communicate via virtual network. Host – container shares host's network stack (no isolation). None – no networking. Overlay – for multi-host communication (used with Swarm/Kubernetes). Macvlan – assigns a real MAC address to the container. IPvlan – similar to macvlan but layer 3.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q22.</span> What is the default network in Docker?</p>
+          <p class="answer"><b>Answer:</b> The default network is bridge. When you run a container without specifying a network, it connects to a virtual bridge network called 'bridge'. Use user-defined bridge networks for DNS-based container name discovery.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q23.</span> What is the difference between bridge and host networking?</p>
+          <p class="answer"><b>Answer:</b> Bridge network creates an isolated virtual network; containers get their own IP. Host network removes network isolation — the container shares the host's network directly, giving better performance but less isolation.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q24.</span> How do containers communicate with each other?</p>
+          <p class="answer"><b>Answer:</b> Containers on the same user-defined bridge network can communicate by container name (Docker provides built-in DNS). For cross-host communication, use overlay networks (Docker Swarm) or Kubernetes networking.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q25.</span> What is port mapping / port publishing in Docker?</p>
+          <p class="answer"><b>Answer:</b> Port mapping exposes a container port to the host using the -p flag: docker run -p 8080:80 nginx maps host port 8080 to container port 80. -P (uppercase) maps all EXPOSED ports to random host ports.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q26.</span> What is an overlay network?</p>
+          <p class="answer"><b>Answer:</b> An overlay network spans multiple Docker hosts, allowing containers on different machines to communicate as if they were on the same network. It is used in Docker Swarm and Kubernetes, using VXLAN encapsulation to tunnel traffic between hosts.</p>
+        </div>
+        <hr>
+      <h2>Volumes & Storage</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q27.</span> What are Docker volumes?</p>
+          <p class="answer"><b>Answer:</b> Docker volumes are the preferred mechanism for persisting data generated and used by Docker containers. Volumes are managed by Docker, stored outside the container's writable layer, so data persists even after the container is removed.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q28.</span> What is the difference between volumes, bind mounts, and tmpfs?</p>
+          <p class="answer"><b>Answer:</b> Volumes – managed by Docker, stored in /var/lib/docker/volumes, best for persistent data. Bind mounts – map a specific host path into a container; good for development. tmpfs mounts – stored in host memory only; not persisted; good for sensitive/temporary data.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q29.</span> When should you use bind mounts vs volumes?</p>
+          <p class="answer"><b>Answer:</b> Use bind mounts during development to share source code between host and container in real time. Use Docker volumes in production for better performance, portability, and manageability.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q30.</span> How do you back up a Docker volume?</p>
+          <p class="answer"><b>Answer:</b> Run a temporary container that mounts the volume and a host directory, then use tar to archive: docker run --rm -v myvolume:/data -v $(pwd):/backup alpine tar czf /backup/backup.tar.gz -C /data .</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q31.</span> What happens to data in a container when it is stopped or deleted?</p>
+          <p class="answer"><b>Answer:</b> When stopped, data is preserved in the writable layer. When deleted, all data in its writable layer is permanently lost. Only data stored in volumes, bind mounts, or external storage persists after deletion.</p>
+        </div>
+        <hr>
+      <h2>Docker Compose</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q32.</span> What is Docker Compose?</p>
+          <p class="answer"><b>Answer:</b> Docker Compose is a tool for defining and running multi-container Docker applications using a YAML file (docker-compose.yml). It allows you to configure services, networks, and volumes in a single file, then spin everything up with docker-compose up.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q33.</span> What are the key sections of a docker-compose.yml file?</p>
+          <p class="answer"><b>Answer:</b> services – defines each container (image, ports, volumes, environment, depends_on, etc.); networks – custom networks; volumes – named volumes shared across services; configs – configuration files; secrets – sensitive data like passwords.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q34.</span> What is the difference between docker-compose up and docker-compose start?</p>
+          <p class="answer"><b>Answer:</b> docker-compose up creates and starts all containers (builds images if needed). docker-compose start only starts already-existing (stopped) containers. docker-compose up --build forces a rebuild of images before starting.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q35.</span> What does depends_on do in Docker Compose?</p>
+          <p class="answer"><b>Answer:</b> depends_on sets startup order between services. Docker will start dependencies before the dependent service. However, it does NOT wait for the dependency to be 'ready' — only that the container has started. Use health checks or wait scripts for readiness.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q36.</span> How do you scale services in Docker Compose?</p>
+          <p class="answer"><b>Answer:</b> Use docker-compose up --scale service=N to run N replicas of a service. For example, docker-compose up --scale web=3 starts 3 instances of the web service.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q37.</span> What is the difference between Docker Compose v1 and v2/v3?</p>
+          <p class="answer"><b>Answer:</b> Compose v2 is the current standard, built into Docker CLI as 'docker compose' (no hyphen). v1 (docker-compose) is deprecated. v3 added Swarm-specific features (deploy, replicas). v2 files are not Swarm-aware but suitable for local/dev environments.</p>
+        </div>
+        <hr>
+      <h2>Docker Swarm & Orchestration</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q38.</span> What is Docker Swarm?</p>
+          <p class="answer"><b>Answer:</b> Docker Swarm is Docker's native container orchestration tool. It turns a group of Docker hosts into a single virtual cluster, handling service deployment, scaling, load balancing, and self-healing across multiple nodes.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q39.</span> What are the components of Docker Swarm?</p>
+          <p class="answer"><b>Answer:</b> Manager nodes – orchestrate the cluster, maintain desired state; Worker nodes – run tasks/containers; Services – define what to run and how many replicas; Tasks – individual containers on worker nodes; Overlay network – connects containers across nodes.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q40.</span> What is the difference between Docker Swarm and Kubernetes?</p>
+          <p class="answer"><b>Answer:</b> Docker Swarm is simpler to set up and integrates natively with Docker, suitable for smaller deployments. Kubernetes is more feature-rich, has a larger ecosystem, better auto-scaling, and is preferred for large, complex production workloads.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q41.</span> What is a service in Docker Swarm?</p>
+          <p class="answer"><b>Answer:</b> A Swarm service defines the desired state of a containerized task: which image to use, how many replicas, ports, networks, and update policies. Swarm maintains the desired number of replicas, replacing failed tasks automatically.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q42.</span> What is the difference between replicated and global services in Swarm?</p>
+          <p class="answer"><b>Answer:</b> Replicated services run a specified number of replica tasks distributed across the cluster. Global services run exactly one task on every node in the swarm (used for monitoring agents, log collectors, etc.).</p>
+        </div>
+        <hr>
+      <h2>Security</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q43.</span> What are Docker security best practices?</p>
+          <p class="answer"><b>Answer:</b> 1. Use official/minimal base images. 2. Run containers as non-root users. 3. Use read-only filesystems where possible. 4. Scan images for vulnerabilities (Trivy, Snyk). 5. Never store secrets in images — use Docker Secrets. 6. Limit container capabilities (--cap-drop). 7. Use resource limits. 8. Keep Docker and images updated. 9. Use namespaces and cgroups isolation.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q44.</span> What are Docker Secrets?</p>
+          <p class="answer"><b>Answer:</b> Docker Secrets is a Swarm feature for securely storing and managing sensitive data (passwords, API keys, TLS certificates). Secrets are encrypted at rest and in transit, and only mounted into containers that explicitly need them as files in /run/secrets/.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q45.</span> How do you run a container as a non-root user?</p>
+          <p class="answer"><b>Answer:</b> In the Dockerfile, use the USER instruction: USER appuser. Create the user first with: RUN adduser -D appuser. You can also pass --user flag at runtime: docker run --user 1001 image. Running as non-root reduces the blast radius of container compromises.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q46.</span> What is container escape, and how do you prevent it?</p>
+          <p class="answer"><b>Answer:</b> Container escape is when a process inside a container breaks out to the host system. Prevention: don't run as root, avoid privileged mode (--privileged), drop unnecessary Linux capabilities, use seccomp and AppArmor profiles, keep Docker updated.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q47.</span> What is the --privileged flag, and when should it be used?</p>
+          <p class="answer"><b>Answer:</b> The --privileged flag gives the container nearly all the capabilities of the host, including direct access to devices. It essentially removes container isolation. It should almost never be used in production — only for specific low-level operations like Docker-in-Docker (DinD).</p>
+        </div>
+        <hr>
+      <h2>Performance & Resource Management</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q48.</span> How do you limit CPU and memory usage for a container?</p>
+          <p class="answer"><b>Answer:</b> docker run --memory=512m limits RAM to 512MB. docker run --cpus=1.5 limits to 1.5 CPU cores. docker run --memory-swap=1g limits swap. docker run --cpu-shares=512 sets relative CPU weight. In Compose: use the deploy.resources.limits section.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q49.</span> What are cgroups and namespaces in Docker?</p>
+          <p class="answer"><b>Answer:</b> Namespaces provide isolation: each container has its own PID, network, mount, UTS, IPC, and user namespaces. Cgroups (control groups) limit and account for resource usage (CPU, memory, I/O) per container.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q50.</span> How do you monitor Docker containers?</p>
+          <p class="answer"><b>Answer:</b> Built-in: docker stats shows real-time CPU, memory, network, and I/O metrics. docker logs shows container output. For production: use Prometheus + cAdvisor, Grafana dashboards, Datadog, or AWS CloudWatch Container Insights.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q51.</span> What is a Docker health check?</p>
+          <p class="answer"><b>Answer:</b> A health check defines a command Docker runs periodically inside the container to test if it is healthy. Set in Dockerfile: HEALTHCHECK CMD curl -f http://localhost/ || exit 1. Unhealthy containers are reported in docker ps and can trigger restarts in Swarm/Kubernetes.</p>
+        </div>
+        <hr>
+      <h2>Advanced & Miscellaneous</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q52.</span> What is Docker-in-Docker (DinD)?</p>
+          <p class="answer"><b>Answer:</b> Docker-in-Docker runs a Docker daemon inside a Docker container, enabling building/running containers from within a container. It is commonly used in CI/CD pipelines. It requires --privileged mode. An alternative is to mount the host Docker socket (/var/run/docker.sock).</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q53.</span> What is the difference between COPY and mounting a volume at runtime?</p>
+          <p class="answer"><b>Answer:</b> COPY embeds files into the image at build time — they become part of the image. Volume mounts happen at runtime, providing external, mutable data that can be updated without rebuilding the image. Use COPY for static app files; volumes for dynamic or persistent data.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q54.</span> What is the Docker build cache, and how does it work?</p>
+          <p class="answer"><b>Answer:</b> Docker caches each build layer. If a layer and all layers before it are unchanged, Docker reuses the cached layer instead of re-executing the instruction, speeding up builds. Order Dockerfile instructions from least to most frequently changing for best caching.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q55.</span> What is docker exec used for?</p>
+          <p class="answer"><b>Answer:</b> docker exec runs a command inside a running container. For example: docker exec -it mycontainer bash opens an interactive bash shell. Useful for debugging, inspecting logs, running migrations, or checking the container's internal state without restarting it.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q56.</span> What is the difference between docker stop and docker kill?</p>
+          <p class="answer"><b>Answer:</b> docker stop sends SIGTERM to the main process, giving it time to gracefully shut down (default 10s timeout), then sends SIGKILL. docker kill immediately sends SIGKILL, forcefully stopping the container. Always prefer docker stop for graceful shutdowns.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q57.</span> What is a dangling image?</p>
+          <p class="answer"><b>Answer:</b> A dangling image is an untagged image no longer referenced by any container. They appear as <none>:<none> in docker images. Clean them up with docker image prune or docker rmi $(docker images -f dangling=true -q).</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q58.</span> How do you copy files between a container and the host?</p>
+          <p class="answer"><b>Answer:</b> docker cp copies files between containers and the host. Example: docker cp mycontainer:/app/logs ./logs copies from container to host. docker cp ./config.yml mycontainer:/app/config.yml copies from host to container. Works on both running and stopped containers.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q59.</span> What is the difference between docker pause and docker stop?</p>
+          <p class="answer"><b>Answer:</b> docker pause suspends all processes in a container using cgroups freezer — the container stays in memory but does nothing. docker stop terminates the container's processes. Pausing is useful for temporarily freeing CPU without losing the container's state.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q60.</span> What is a Docker context?</p>
+          <p class="answer"><b>Answer:</b> A Docker context lets you switch between different Docker endpoints (local daemon, remote host, Kubernetes cluster) using docker context use. This allows managing containers on remote hosts without SSH-ing in. Contexts store connection info including TLS certificates.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q61.</span> What are labels in Docker?</p>
+          <p class="answer"><b>Answer:</b> Labels are key-value metadata attached to images, containers, volumes, or networks. Set in Dockerfiles with LABEL or at runtime with --label. Useful for organizing resources, filtering with docker ps --filter label=, and providing version/owner/description metadata for tooling and automation.</p>
+        </div>
+        <hr>
+      </body></html>
