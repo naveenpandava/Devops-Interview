@@ -1,0 +1,733 @@
+﻿
+    <html xmlns:o="urn:schemas-microsoft-com:office:office"
+          xmlns:w="urn:schemas-microsoft-com:office:word"
+          xmlns="http://www.w3.org/TR/REC-html40">
+    <head>
+      <meta charset="UTF-8">
+      <title>AWS Networking Interview Q&A</title>
+      <!--[if gte mso 9]>
+      <xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml>
+      <![endif]-->
+      <style>
+        body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #222; margin: 1in; }
+        h1 { font-size: 22pt; color: #ff9900; text-align: center; margin-bottom: 4pt; }
+        .subtitle { text-align: center; color: #555; font-size: 11pt; margin-bottom: 20pt; }
+        h2 { font-size: 14pt; color: #fff; background: #ff9900; padding: 5pt 10pt; margin-top: 22pt; margin-bottom: 0; }
+        .qa-block { margin: 8pt 0; border-left: 4pt solid #ff9900; padding-left: 10pt; }
+        .question { font-weight: bold; color: #7a4800; font-size: 11pt; margin-bottom: 3pt; }
+        .answer { font-size: 10.5pt; color: #333; margin: 0; line-height: 1.6; white-space: pre-wrap; }
+        .q-num { color: #ff9900; font-weight: bold; }
+        hr { border: none; border-top: 1pt solid #ddd; margin: 6pt 0; }
+      </style>
+    </head>
+    <body>
+      <h1>☁️ AWS Networking Interview Questions &amp; Answers</h1>
+      <p class="subtitle">110 Questions across 12 Categories</p>
+  <h2>VPC Fundamentals</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q1.</span> What is Amazon VPC?</p>
+          <p class="answer"><b>Answer:</b> Amazon Virtual Private Cloud (VPC) is a logically isolated section of the AWS cloud where you can launch AWS resources in a virtual network that you define. You have full control over your virtual networking environment, including selection of IP address ranges, creation of subnets, and configuration of route tables, gateways, and security settings.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q2.</span> What is the default VPC in AWS?</p>
+          <p class="answer"><b>Answer:</b> Every AWS account comes with a default VPC in each region. It has a default CIDR of 172.31.0.0/16, a public subnet in each Availability Zone, an Internet Gateway attached, a default route table with a route to the IGW, and a default security group and NACL. It is designed for quick use but is not recommended for production workloads.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q3.</span> What is a CIDR block in AWS VPC?</p>
+          <p class="answer"><b>Answer:</b> CIDR (Classless Inter-Domain Routing) is a method of representing IP address ranges. When creating a VPC, you assign a primary CIDR block (e.g., 10.0.0.0/16) that defines the IP address space. The prefix length (/16 to /28 for VPCs) determines the size. /16 gives 65,536 addresses; /28 gives 16 addresses. You can add up to 4 secondary CIDR blocks.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q4.</span> What are the allowed CIDR block sizes for a VPC?</p>
+          <p class="answer"><b>Answer:</b> A VPC CIDR block can range from /16 (65,536 IP addresses) to /28 (16 IP addresses). The CIDR must be from the private IP ranges: 10.0.0.0/8, 172.16.0.0/12, or 192.168.0.0/16 (RFC 1918). Once created, the primary CIDR block cannot be modified, but you can add secondary CIDR blocks.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q5.</span> What is a subnet in AWS VPC?</p>
+          <p class="answer"><b>Answer:</b> A subnet is a range of IP addresses within your VPC, associated with a single Availability Zone. Subnets segment the VPC into smaller networks. Public subnets have a route to the Internet Gateway; private subnets do not. Each subnet must reside entirely within one AZ and cannot span AZs. AWS reserves 5 IP addresses in each subnet.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q6.</span> Why does AWS reserve 5 IP addresses in every subnet?</p>
+          <p class="answer"><b>Answer:</b> AWS reserves the first 4 and last IP address in every subnet: .0 (network address), .1 (VPC router), .2 (AWS DNS server), .3 (reserved for future use), and the last address (.255 in a /24 — broadcast address, unused in AWS but reserved). A /24 subnet (256 addresses) therefore has only 251 usable IP addresses.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q7.</span> What is the difference between a public subnet and a private subnet?</p>
+          <p class="answer"><b>Answer:</b> Public subnet: has a route in its route table pointing 0.0.0.0/0 to an Internet Gateway. Resources with public or Elastic IPs can communicate with the internet directly.
+Private subnet: has no route to the Internet Gateway. Resources cannot directly initiate or receive internet traffic. Internet access for private resources goes through a NAT Gateway or NAT Instance.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q8.</span> Can a VPC span multiple AWS regions?</p>
+          <p class="answer"><b>Answer:</b> No. A VPC is region-specific and cannot span multiple AWS regions. Subnets within a VPC can span multiple Availability Zones within the same region. To connect VPCs across regions, use VPC Peering (inter-region) or AWS Transit Gateway with inter-region peering.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q9.</span> What is a secondary CIDR block in VPC?</p>
+          <p class="answer"><b>Answer:</b> You can add up to 4 secondary IPv4 CIDR blocks to an existing VPC to expand its address space without recreating it. Secondary CIDRs must not overlap with existing subnets, VPC peering connections, or other attached CIDRs. Useful when the original CIDR is exhausted and you need to add more subnets.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q10.</span> What is IPv6 support in AWS VPC?</p>
+          <p class="answer"><b>Answer:</b> AWS VPCs support dual-stack (IPv4 + IPv6). You can assign an Amazon-provided /56 IPv6 CIDR block to your VPC and /64 blocks to subnets. IPv6 addresses are globally unique and public by default. Internet access uses an Internet Gateway (for public) or Egress-Only Internet Gateway (for outbound-only IPv6). IPv6 CIDRs cannot be chosen — they are assigned by AWS.</p>
+        </div>
+        <hr>
+      <h2>Route Tables, Gateways & NAT</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q11.</span> What is a route table in AWS VPC?</p>
+          <p class="answer"><b>Answer:</b> A route table contains a set of rules (routes) that determine where network traffic is directed. Each subnet must be associated with exactly one route table. Routes specify a destination (CIDR) and a target (IGW, NAT Gateway, VPC Peering connection, TGW, etc.). Every VPC has a main route table used by subnets not explicitly associated with another table.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q12.</span> What is the local route in a VPC route table?</p>
+          <p class="answer"><b>Answer:</b> Every route table automatically includes a local route for the VPC CIDR (e.g., 10.0.0.0/16 → local). This route enables communication between all resources within the VPC and cannot be deleted or modified. It is the default rule that allows intra-VPC traffic to flow without going through a gateway.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q13.</span> What is an Internet Gateway (IGW)?</p>
+          <p class="answer"><b>Answer:</b> An Internet Gateway is a horizontally scaled, redundant, highly available VPC component that enables communication between instances in your VPC and the internet. It provides a target in route tables for internet-routable traffic and performs NAT for instances with public IPv4 addresses. One IGW per VPC; it does not limit bandwidth.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q14.</span> What is a NAT Gateway?</p>
+          <p class="answer"><b>Answer:</b> A NAT (Network Address Translation) Gateway allows instances in private subnets to initiate outbound connections to the internet (for software updates, API calls, etc.) while preventing inbound connections from the internet. It is AWS-managed, highly available within an AZ, and scales up to 100 Gbps. Deploy one per AZ for HA. It requires an Elastic IP.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q15.</span> What is the difference between a NAT Gateway and a NAT Instance?</p>
+          <p class="answer"><b>Answer:</b> NAT Gateway: AWS-managed, highly available, automatically scales, no patching needed, costs more, no security group, does not support port forwarding.
+NAT Instance: EC2 instance running NAT software, self-managed, single point of failure (unless HA configured manually), requires disabling source/destination check, supports port forwarding and security groups, cheaper but operationally complex. NAT Gateway is strongly recommended for production.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q16.</span> What is an Egress-Only Internet Gateway?</p>
+          <p class="answer"><b>Answer:</b> An Egress-Only Internet Gateway allows outbound IPv6 traffic from instances in a VPC to the internet and prevents the internet from initiating connections to those instances. It is the IPv6 equivalent of a NAT Gateway (since all IPv6 addresses are public, egress-only IGW prevents unsolicited inbound connections). Stateful — return traffic is allowed.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q17.</span> What is a Virtual Private Gateway (VGW)?</p>
+          <p class="answer"><b>Answer:</b> A Virtual Private Gateway is the VPN concentrator on the AWS side of a VPN connection. It is attached to a VPC and enables AWS Site-to-Site VPN connections to on-premises networks. It also serves as the AWS endpoint for AWS Direct Connect connections. One VGW can have multiple VPN connections or DX virtual interfaces.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q18.</span> What is route propagation in AWS?</p>
+          <p class="answer"><b>Answer:</b> Route propagation automatically adds routes from a Virtual Private Gateway (VGW) or Transit Gateway to a route table. When enabled on a route table, BGP routes learned from on-premises over VPN or Direct Connect are automatically populated without manual entry. Useful for dynamic routing where on-premises prefixes change frequently.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q19.</span> What is the most specific route rule (longest prefix match)?</p>
+          <p class="answer"><b>Answer:</b> When multiple routes in a route table match a destination IP, AWS uses the most specific route (longest prefix match) — the route with the smallest CIDR range that still matches. Example: if routes exist for 10.0.0.0/16 and 10.0.1.0/24, traffic to 10.0.1.5 uses the /24 route as it is more specific. Local routes always take priority over propagated routes.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q20.</span> What is a Gateway Load Balancer Endpoint in routing?</p>
+          <p class="answer"><b>Answer:</b> A Gateway Load Balancer Endpoint (GWLBE) is used to redirect traffic to a fleet of virtual appliances (firewalls, IDS/IPS) via a Gateway Load Balancer. Route tables can direct traffic through a GWLBE before it reaches its destination, enabling transparent network security inspection without changing the application architecture.</p>
+        </div>
+        <hr>
+      <h2>Security Groups & NACLs</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q21.</span> What is a Security Group in AWS?</p>
+          <p class="answer"><b>Answer:</b> A Security Group acts as a virtual stateful firewall for EC2 instances and other AWS resources. It controls inbound and outbound traffic at the instance level using allow rules only (no deny rules). Security groups are stateful — if you allow inbound traffic, the return traffic is automatically allowed. You can assign up to 5 security groups to an instance.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q22.</span> What is a Network ACL (NACL)?</p>
+          <p class="answer"><b>Answer:</b> A Network ACL is a stateless firewall at the subnet level. It evaluates traffic entering and leaving a subnet using numbered rules processed in order (lowest first). NACLs support both allow and deny rules. Because they are stateless, return traffic must be explicitly allowed. Each subnet is associated with exactly one NACL; the default NACL allows all traffic.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q23.</span> What is the difference between a Security Group and a NACL?</p>
+          <p class="answer"><b>Answer:</b> Security Group: instance-level, stateful (return traffic auto-allowed), allow rules only, all rules evaluated, up to 5 per instance.
+NACL: subnet-level, stateless (return traffic must be explicitly allowed), allow and deny rules, rules evaluated in order (lowest number first), one per subnet.
+Use SGs as the primary control; use NACLs for explicit subnet-level blocks (e.g., blocking a specific IP range).</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q24.</span> What is a stateful firewall vs stateless firewall?</p>
+          <p class="answer"><b>Answer:</b> Stateful firewall (Security Groups): tracks connection state. If inbound traffic is allowed, the response is automatically permitted regardless of outbound rules.
+Stateless firewall (NACLs): treats each packet independently. Both the request and response must be explicitly permitted by separate inbound and outbound rules. Requires ephemeral port ranges (1024-65535) to be allowed for return traffic.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q25.</span> What are ephemeral ports and why are they important for NACLs?</p>
+          <p class="answer"><b>Answer:</b> Ephemeral ports (1024–65535) are temporary ports assigned by the OS for the client side of a TCP/UDP connection. When a client connects to a server on port 80, the client uses a random ephemeral port for the return traffic. Since NACLs are stateless, you must allow inbound traffic on ephemeral port ranges to permit response traffic from internet-facing resources.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q26.</span> What is the default Security Group in a VPC?</p>
+          <p class="answer"><b>Answer:</b> The default security group created with each VPC allows all inbound traffic from other resources assigned to the same default security group, and all outbound traffic. It has an inbound rule referencing itself as the source. Best practice: do not use the default security group; create custom SGs with least-privilege rules.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q27.</span> Can Security Groups reference other Security Groups?</p>
+          <p class="answer"><b>Answer:</b> Yes. Security group rules can reference another security group as the source or destination instead of a CIDR range. This allows dynamic rules: e.g., allow inbound port 3306 from the web-tier security group. When new instances are added to the referenced SG, they are automatically covered by the rule without updating the rule itself.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q28.</span> What is VPC Security Group referencing across VPC peering?</p>
+          <p class="answer"><b>Answer:</b> In peered VPCs within the same region and account, security group rules can reference a security group from the peered VPC as a source/destination (using the SG ID). This simplifies rules for peered VPC communication without needing to manage CIDR ranges. Not supported across regions or AWS Organizations accounts by default.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q29.</span> What is the limit on Security Group rules?</p>
+          <p class="answer"><b>Answer:</b> Default limits: 60 inbound and 60 outbound rules per security group (can be increased via support request). Each rule counts as one rule for CIDR-based rules; SG references count as individual tracked connections. The product of security groups × rules per SG is limited, so avoid very high rule counts across many SGs.</p>
+        </div>
+        <hr>
+      <h2>VPC Connectivity</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q30.</span> What is VPC Peering?</p>
+          <p class="answer"><b>Answer:</b> VPC Peering is a networking connection between two VPCs that enables routing traffic between them using private IP addresses. Peered VPCs can be in the same account, different accounts, or different regions (inter-region peering). Traffic stays within the AWS network. Peering is non-transitive — you cannot route through a peered VPC to reach a third VPC.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q31.</span> What does non-transitive peering mean?</p>
+          <p class="answer"><b>Answer:</b> Non-transitive peering means that if VPC-A is peered with VPC-B, and VPC-B is peered with VPC-C, VPC-A cannot communicate with VPC-C through VPC-B. Each pair of VPCs that needs to communicate requires its own direct peering connection. This becomes complex at scale — Transit Gateway solves this with a hub-and-spoke model.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q32.</span> What are the limitations of VPC Peering?</p>
+          <p class="answer"><b>Answer:</b> 1. Non-transitive — no routing through intermediate VPCs.
+2. CIDRs must not overlap between peered VPCs.
+3. Maximum of 125 peering connections per VPC (default).
+4. Does not support edge-to-edge routing (e.g., cannot use peer's IGW, VPN, or DX).
+5. Inter-region peering does not support IPv6 in all regions.
+6. Managing hundreds of peering connections is operationally complex — use Transit Gateway instead.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q33.</span> What is AWS Transit Gateway (TGW)?</p>
+          <p class="answer"><b>Answer:</b> AWS Transit Gateway is a highly scalable, centralized hub that connects VPCs, VPNs, and Direct Connect connections. It acts as a cloud router — each network connects once to the TGW, and routing is managed centrally. Supports transitive routing (VPC-A → TGW → VPC-B → TGW → VPC-C), inter-region peering, multicast, and route table segmentation.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q34.</span> What is the difference between VPC Peering and Transit Gateway?</p>
+          <p class="answer"><b>Answer:</b> VPC Peering: point-to-point, free data transfer within the same AZ, no transitive routing, complex at scale (N*(N-1)/2 connections for N VPCs), no centralized management.
+Transit Gateway: hub-and-spoke, single connection per VPC, transitive routing, centralized route tables, supports thousands of VPCs, inter-region peering, but costs more (attachment + data processing fees). TGW is preferred for 3+ VPCs.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q35.</span> What is AWS PrivateLink?</p>
+          <p class="answer"><b>Answer:</b> AWS PrivateLink provides private connectivity between VPCs and AWS services (or your own services) without traversing the public internet, using Elastic Network Interfaces (ENIs) with private IPs. It creates Interface VPC Endpoints. You can expose your service to other VPCs without VPC peering, using a Network Load Balancer on the provider side and an endpoint on the consumer side.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q36.</span> What is a VPC Endpoint?</p>
+          <p class="answer"><b>Answer:</b> A VPC Endpoint enables private connectivity from your VPC to AWS services without requiring an Internet Gateway, NAT Gateway, VPN, or Direct Connect. Traffic stays within the AWS network. Two types: Gateway Endpoints (S3 and DynamoDB — free, added to route tables) and Interface Endpoints (PrivateLink-based — ENI with private IP, supports most AWS services, billed per hour + data).</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q37.</span> What is the difference between Gateway Endpoint and Interface Endpoint?</p>
+          <p class="answer"><b>Answer:</b> Gateway Endpoint: only supports S3 and DynamoDB, free, added as a route table entry (prefix list target), does not use DNS, no security group, uses the VPC's existing routing.
+Interface Endpoint (PrivateLink): supports 100+ AWS services, creates an ENI with a private IP in the subnet, uses DNS (private DNS names), supports security groups, billed hourly plus per-GB data. Interface endpoints are more flexible but cost more.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q38.</span> What is VPC Sharing (Resource Access Manager)?</p>
+          <p class="answer"><b>Answer:</b> VPC Sharing (via AWS RAM — Resource Access Manager) allows sharing subnets across multiple AWS accounts within the same AWS Organization. The owner account creates the VPC and shares subnets with participant accounts. Participants launch resources in shared subnets but cannot modify the VPC structure. Reduces VPC sprawl and simplifies centralized network management.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q39.</span> What is AWS CloudWAN?</p>
+          <p class="answer"><b>Answer:</b> AWS Cloud WAN is a managed wide-area networking service for building, managing, and monitoring global enterprise networks. It provides a central dashboard to connect offices, data centers, and AWS VPCs across regions using a software-defined WAN (SD-WAN) approach, with network policies defined centrally and enforced globally.</p>
+        </div>
+        <hr>
+      <h2>VPN & Direct Connect</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q40.</span> What is AWS Site-to-Site VPN?</p>
+          <p class="answer"><b>Answer:</b> AWS Site-to-Site VPN creates an encrypted IPsec VPN tunnel between your on-premises network and your AWS VPC over the public internet. It uses a Customer Gateway (your end) and a Virtual Private Gateway (AWS end). Each VPN connection has two tunnels for redundancy. Supports static and dynamic (BGP) routing. Bandwidth up to ~1.25 Gbps per tunnel.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q41.</span> What is a Customer Gateway (CGW)?</p>
+          <p class="answer"><b>Answer:</b> A Customer Gateway is an AWS resource that represents the on-premises VPN device (router or firewall). It stores the public IP address of your on-premises VPN device and optionally the BGP ASN. You create a CGW in the AWS console before creating the Site-to-Site VPN connection. The actual device configuration is done on-premises using the downloaded configuration file.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q42.</span> What is AWS Direct Connect (DX)?</p>
+          <p class="answer"><b>Answer:</b> AWS Direct Connect provides a dedicated, private network connection between your on-premises data center and AWS. It bypasses the public internet, offering more consistent network performance, lower latency, higher bandwidth (1 Gbps, 10 Gbps, 100 Gbps), and potentially lower data transfer costs. DX connections use BGP for routing and support VLAN tagging (802.1Q).</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q43.</span> What is a Direct Connect Virtual Interface (VIF)?</p>
+          <p class="answer"><b>Answer:</b> A Virtual Interface is a logical connection on a Direct Connect connection. Types: Private VIF (connects to a VPC via VGW or TGW), Public VIF (connects to AWS public services like S3, DynamoDB using public IP addresses — not via VPC), Transit VIF (connects to Transit Gateway for multi-VPC access). Multiple VIFs can share one physical DX connection.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q44.</span> What is a Direct Connect Gateway?</p>
+          <p class="answer"><b>Answer:</b> A Direct Connect Gateway is a globally available resource that enables a single Direct Connect connection (or LAG) to connect to VPCs in any AWS region (except China and GovCloud). It allows one DX connection to reach multiple VPCs across multiple regions via Private VIFs, eliminating the need for separate DX connections per region.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q45.</span> What is the difference between Hosted Connection and Dedicated Connection in Direct Connect?</p>
+          <p class="answer"><b>Answer:</b> Dedicated Connection: a physical Ethernet port dedicated to a single customer at an AWS DX location. Available in 1 Gbps, 10 Gbps, and 100 Gbps. Provisioned directly by AWS.
+Hosted Connection: a logical sub-1G or 1G/10G connection provisioned by a DX Partner on a shared physical port. Available in capacities from 50 Mbps to 10 Gbps. Good for smaller bandwidth needs or when a DX location is not accessible.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q46.</span> What is a Link Aggregation Group (LAG) in Direct Connect?</p>
+          <p class="answer"><b>Answer:</b> A LAG is a logical grouping of multiple Direct Connect connections into a single managed connection, combining bandwidth and providing failover. All connections in a LAG must have the same speed and terminate at the same DX location. If connections in the LAG fall below a minimum threshold, the LAG becomes non-operational. Supports LACP (Link Aggregation Control Protocol).</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q47.</span> What is the difference between Site-to-Site VPN and Direct Connect?</p>
+          <p class="answer"><b>Answer:</b> VPN: encrypted, over public internet, quick to set up (hours/days), up to ~1.25 Gbps per tunnel, variable latency, lower cost.
+Direct Connect: private dedicated line, not encrypted by default (add MACsec or VPN over DX for encryption), takes weeks to provision, up to 100 Gbps, consistent low latency, higher upfront cost.
+Best practice: use Direct Connect for primary connectivity and VPN as a backup/failover path.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q48.</span> What is VPN over Direct Connect?</p>
+          <p class="answer"><b>Answer:</b> VPN over Direct Connect (also called DX + VPN) creates an encrypted IPsec VPN tunnel over a Direct Connect Public VIF. This provides the consistent performance and dedicated bandwidth of Direct Connect combined with the encryption of VPN. Used in compliance-sensitive environments that require both private connectivity and encryption in transit.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q49.</span> What is Accelerated Site-to-Site VPN?</p>
+          <p class="answer"><b>Answer:</b> Accelerated VPN uses AWS Global Accelerator to route VPN traffic through the closest AWS edge location and then over the AWS global network backbone to the VPN endpoint in the target region. This significantly reduces latency and improves reliability compared to standard VPN, which routes entirely over the public internet. Requires Transit Gateway as the VPN endpoint (not VGW).</p>
+        </div>
+        <hr>
+      <h2>Elastic Load Balancing</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q50.</span> What are the types of AWS Load Balancers?</p>
+          <p class="answer"><b>Answer:</b> Application Load Balancer (ALB): Layer 7, HTTP/HTTPS/WebSocket, content-based routing (host, path, headers, query strings), supports Lambda targets.
+Network Load Balancer (NLB): Layer 4, TCP/UDP/TLS, ultra-high performance, static IP, preserves client IP.
+Gateway Load Balancer (GWLB): Layer 3, transparent traffic inspection for virtual appliances (GENEVE protocol).
+Classic Load Balancer (CLB): legacy Layer 4/7, not recommended for new workloads.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q51.</span> What is an Application Load Balancer (ALB)?</p>
+          <p class="answer"><b>Answer:</b> ALB operates at Layer 7 (HTTP/HTTPS). It routes traffic based on content: host-based routing (different domains to different target groups), path-based routing (/api/* vs /static/*), header/query string/method-based routing, and weighted routing. Supports HTTP/2, WebSockets, gRPC, sticky sessions, authentication (Cognito, OIDC), and WAF integration.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q52.</span> What is a Network Load Balancer (NLB)?</p>
+          <p class="answer"><b>Answer:</b> NLB operates at Layer 4 (TCP/UDP/TLS). It handles millions of requests per second with ultra-low latency. Key features: static Elastic IP per AZ, preserves the client source IP address, supports TCP, UDP, TLS termination, cross-zone load balancing (optional), health checks at TCP/HTTP/HTTPS level, and can be a target for ALB for combining Layer 4+7 features.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q53.</span> What is a Gateway Load Balancer (GWLB)?</p>
+          <p class="answer"><b>Answer:</b> GWLB operates at Layer 3 and is designed for deploying, scaling, and managing third-party virtual network appliances (firewalls, IDS/IPS, deep packet inspection). It uses the GENEVE protocol (port 6081) to transparently forward all traffic to appliances. Combined with GWLB Endpoints, it intercepts traffic in routing paths for inspection without changing IP addresses.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q54.</span> What is a Target Group in AWS Load Balancing?</p>
+          <p class="answer"><b>Answer:</b> A Target Group is a logical grouping of targets (EC2 instances, IP addresses, Lambda functions, ALB) that receive traffic from a load balancer listener rule. Each target group has a health check configuration. ALB and NLB route requests to a target group based on listener rules. You can register the same target in multiple target groups.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q55.</span> What is cross-zone load balancing?</p>
+          <p class="answer"><b>Answer:</b> Cross-zone load balancing distributes traffic evenly across all registered targets in all enabled AZs, not just within the load balancer node's own AZ. ALB: enabled by default (no data transfer charge). NLB/GWLB: disabled by default (inter-AZ data transfer charges apply when enabled). Without cross-zone, each LB node distributes traffic only to its own AZ's targets.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q56.</span> What is an ALB Listener and Listener Rule?</p>
+          <p class="answer"><b>Answer:</b> A Listener is a process that checks for connection requests on a specific port and protocol (HTTP:80, HTTPS:443). Listener Rules define how the ALB routes requests matching specific conditions (path, host, headers, source IP, query strings). Rules have a priority number (1–50000) and an action: forward to target group, redirect, fixed response, authenticate, or weighted forward.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q57.</span> What is sticky sessions (session affinity) in ALB?</p>
+          <p class="answer"><b>Answer:</b> Sticky sessions ensure that requests from the same client are always routed to the same target. ALB uses a cookie (AWSALBAPP or application-based) to track the target. Duration is configurable (1 second to 7 days). Useful for stateful applications that store session data locally. Note: stickiness can cause uneven load distribution.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q58.</span> What is the difference between ALB and NLB for TLS termination?</p>
+          <p class="answer"><b>Answer:</b> ALB TLS termination: terminates TLS at the load balancer, decrypts traffic, and forwards HTTP to targets. Certificate managed via ACM. Allows content-based routing of decrypted traffic.
+NLB TLS termination: also terminates TLS at the NLB and forwards TCP to targets. Supports custom SSL policies. NLB can also pass-through TLS (no termination) to targets, preserving end-to-end encryption.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q59.</span> What is the AWS Load Balancer health check?</p>
+          <p class="answer"><b>Answer:</b> Health checks periodically test target availability. If a target fails N consecutive health checks (unhealthy threshold), it is removed from rotation. When it passes M consecutive checks (healthy threshold), it is re-added. Configurable: protocol (HTTP/HTTPS/TCP), path, port, interval (5–300s), timeout, and thresholds. Unhealthy targets receive no traffic.</p>
+        </div>
+        <hr>
+      <h2>DNS – Route 53</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q60.</span> What is Amazon Route 53?</p>
+          <p class="answer"><b>Answer:</b> Amazon Route 53 is a highly available, scalable, cloud-native DNS (Domain Name System) web service. It provides domain registration, DNS routing, and health checking of resources. Named after TCP/UDP port 53 (DNS port). It supports public and private hosted zones, multiple routing policies, and integrates with other AWS services via alias records.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q61.</span> What is a hosted zone in Route 53?</p>
+          <p class="answer"><b>Answer:</b> A hosted zone is a container for DNS records for a specific domain. Public hosted zone: routes internet traffic for a publicly registered domain. Private hosted zone: routes traffic within one or more VPCs for a private domain (not resolvable from the internet). You associate private hosted zones with VPCs to enable private DNS resolution.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q62.</span> What are the routing policies in Route 53?</p>
+          <p class="answer"><b>Answer:</b> Simple: single resource, no health checks.
+Weighted: distribute traffic across multiple resources by percentage.
+Latency-based: route to the region with the lowest latency for the user.
+Failover: active-passive; primary if healthy, secondary if not.
+Geolocation: route based on user's geographic location (continent, country, state).
+Geoproximity: route based on location with optional bias to shift traffic.
+Multivalue Answer: return multiple healthy IPs (not a load balancer substitute).
+IP-based: route based on client IP CIDR.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q63.</span> What is an Alias record in Route 53?</p>
+          <p class="answer"><b>Answer:</b> An Alias record is a Route 53 extension to DNS. It maps a domain name to an AWS resource (ALB, CloudFront, S3 website, API Gateway, Elastic Beanstalk, VPC endpoints, Global Accelerator). Unlike CNAME, Alias can be used at the zone apex (e.g., example.com). Alias queries are free. Route 53 automatically updates the record if the AWS resource's IP changes.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q64.</span> What is the difference between CNAME and Alias in Route 53?</p>
+          <p class="answer"><b>Answer:</b> CNAME: maps one domain name to another (e.g., www.example.com → example.com). Cannot be used at the zone apex. Billed per query.
+Alias: AWS-specific, maps to AWS resource DNS names. Can be used at the zone apex. Free for queries to AWS resources. AWS automatically resolves the alias target's IP. Alias is preferred for AWS resources.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q65.</span> What is Route 53 health checking?</p>
+          <p class="answer"><b>Answer:</b> Route 53 health checks monitor the health of resources (HTTP, HTTPS, TCP endpoints, or other health checks). Health checkers globally poll your endpoint. If the endpoint fails, Route 53 can stop routing traffic to it (used with failover/weighted/latency routing). Supports CloudWatch alarm-based health checks for non-internet-facing resources.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q66.</span> What is Route 53 Resolver?</p>
+          <p class="answer"><b>Answer:</b> Route 53 Resolver is the DNS resolver built into every VPC (at the .2 address of the VPC CIDR, also accessible at 169.254.169.253). It resolves AWS internal hostnames and public DNS. Resolver Endpoints (Inbound and Outbound) extend this to enable DNS queries between on-premises networks and AWS VPCs via Direct Connect or VPN.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q67.</span> What are Route 53 Resolver Endpoints?</p>
+          <p class="answer"><b>Answer:</b> Inbound Endpoint: allows DNS queries originating from on-premises to be forwarded to Route 53 Resolver in the VPC. On-premises systems can resolve AWS private hosted zone records.
+Outbound Endpoint: allows DNS queries from the VPC to be forwarded to on-premises DNS servers for resolving on-premises domain names. Resolver Rules (forwarding rules) define which domains are forwarded.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q68.</span> What is Route 53 Traffic Flow?</p>
+          <p class="answer"><b>Answer:</b> Traffic Flow is a visual editor for building complex routing configurations using multiple routing policies simultaneously. Define a traffic policy (a combination of weighted, latency, geolocation, failover rules), and apply it to DNS records. Supports versioning of policies and can be applied to multiple records. Simplifies managing complex global routing configurations.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q69.</span> What is DNSSEC in Route 53?</p>
+          <p class="answer"><b>Answer:</b> DNSSEC (DNS Security Extensions) adds cryptographic signatures to DNS records, allowing resolvers to verify authenticity and integrity of DNS responses. Route 53 supports DNSSEC signing for public hosted zones. It protects against DNS spoofing and cache poisoning attacks. Requires key management (KSK) and establishing a chain of trust with the domain registrar.</p>
+        </div>
+        <hr>
+      <h2>CloudFront & Global Accelerator</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q70.</span> What is Amazon CloudFront?</p>
+          <p class="answer"><b>Answer:</b> Amazon CloudFront is a fast Content Delivery Network (CDN) that distributes content globally through a network of edge locations. It caches static and dynamic content close to users, reducing latency. Integrates with S3, ALB, EC2, API Gateway, and custom origins. Supports HTTPS, field-level encryption, Lambda@Edge, and AWS WAF for security.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q71.</span> What is an Origin in CloudFront?</p>
+          <p class="answer"><b>Answer:</b> An Origin is the source of the content served by CloudFront. Supported origins: S3 buckets (static content, website hosting), Application Load Balancers, EC2 instances, API Gateway endpoints, and custom HTTP servers. CloudFront fetches content from the origin on a cache miss and caches it at edge locations for subsequent requests.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q72.</span> What is an Edge Location vs Regional Edge Cache in CloudFront?</p>
+          <p class="answer"><b>Answer:</b> Edge Locations: 400+ global PoPs (Points of Presence) where CloudFront caches content and serves user requests. Closest layer to end users.
+Regional Edge Caches: 13 mid-tier caches between edge locations and origins. Less frequently accessed content is cached here longer before fetching from origin, reducing origin load and improving cache hit ratios for less popular content.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q73.</span> What is OAC (Origin Access Control) in CloudFront?</p>
+          <p class="answer"><b>Answer:</b> Origin Access Control (OAC, successor to OAI) restricts direct access to an S3 bucket so content can only be accessed through CloudFront, not directly via the S3 URL. CloudFront signs requests to S3 using AWS SigV4. The S3 bucket policy denies direct access and allows only CloudFront's service principal. Prevents bypassing CDN and security controls.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q74.</span> What is Lambda@Edge?</p>
+          <p class="answer"><b>Answer:</b> Lambda@Edge lets you run Lambda functions at CloudFront edge locations in response to CloudFront events (viewer request, origin request, origin response, viewer response). Used for: request/response manipulation, A/B testing, authentication/authorization at the edge, URL rewrites, bot detection, and personalization. Functions run in the region closest to the viewer.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q75.</span> What is AWS Global Accelerator?</p>
+          <p class="answer"><b>Answer:</b> AWS Global Accelerator is a networking service that improves availability and performance of applications by routing traffic through the AWS global network instead of the public internet. It provides two static Anycast IP addresses that route users to the optimal AWS endpoint (ALB, NLB, EC2, or Elastic IP) based on health, geography, and routing policies.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q76.</span> What is the difference between CloudFront and Global Accelerator?</p>
+          <p class="answer"><b>Answer:</b> CloudFront: CDN focused on caching static/dynamic content at edge locations, HTTP/HTTPS, reduces latency via caching, L7.
+Global Accelerator: network-level acceleration, TCP/UDP, no caching, routes traffic to backend endpoints (EC2, ALB, NLB), provides static IPs, better for non-HTTP workloads (gaming, IoT, VoIP), failover, and consistent routing. Both use the AWS global network for the last mile.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q77.</span> What is CloudFront signed URLs and signed cookies?</p>
+          <p class="answer"><b>Answer:</b> Signed URLs and cookies restrict access to CloudFront content to authorized users. Signed URL: grants access to a single object for a specific time period — useful for individual file downloads. Signed Cookie: grants access to multiple objects matching a path pattern — better for streaming or multiple protected files. Both use RSA key pairs for signing.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q78.</span> What is CloudFront Cache Behavior?</p>
+          <p class="answer"><b>Answer:</b> Cache Behaviors define how CloudFront handles requests for different URL path patterns from the same distribution. Each behavior specifies: origin, cache policy (TTL, cache keys), origin request policy, viewer protocol policy (HTTP/HTTPS), allowed HTTP methods, and whether to use Lambda@Edge. Default behavior matches all paths (*) and is the fallback.</p>
+        </div>
+        <hr>
+      <h2>Network Security</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q79.</span> What is AWS WAF (Web Application Firewall)?</p>
+          <p class="answer"><b>Answer:</b> AWS WAF is a web application firewall that protects against common web exploits (SQL injection, XSS, OWASP Top 10). It filters HTTP/HTTPS traffic using rules grouped into Web ACLs. Deployed on CloudFront, ALB, API Gateway, or AppSync. Supports AWS Managed Rule Groups, rate-based rules (DDoS protection), geographic restrictions, and custom rules with regex and string matching.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q80.</span> What is AWS Shield?</p>
+          <p class="answer"><b>Answer:</b> AWS Shield provides DDoS (Distributed Denial of Service) protection. Shield Standard: automatically included for all AWS customers at no cost; protects against L3/L4 attacks. Shield Advanced: paid service (~$3,000/month); adds L7 protection, 24/7 DDoS Response Team (DRT), cost protection for scaling during attacks, enhanced detection, and integration with WAF and Route 53.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q81.</span> What is AWS Network Firewall?</p>
+          <p class="answer"><b>Answer:</b> AWS Network Firewall is a managed, stateful firewall service for VPCs. It provides deep packet inspection, intrusion prevention (IPS), web filtering (domain-based), stateful protocol detection, and TLS/SSL inspection. Deployed in a dedicated subnet (firewall subnet), traffic is routed through it via route tables. Scales automatically and integrates with AWS Firewall Manager.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q82.</span> What is AWS Firewall Manager?</p>
+          <p class="answer"><b>Answer:</b> AWS Firewall Manager is a centralized security management service for configuring and managing AWS WAF rules, AWS Shield Advanced, Security Groups, AWS Network Firewall, and Route 53 Resolver DNS Firewall across multiple AWS accounts in an AWS Organization. Ensures consistent security policies and automatically remediates non-compliant resources.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q83.</span> What is VPC Flow Logs?</p>
+          <p class="answer"><b>Answer:</b> VPC Flow Logs capture information about IP traffic flowing to and from network interfaces in your VPC. Logs include: source/destination IP and port, protocol, packets, bytes, action (ACCEPT/REJECT), and flow direction. Published to CloudWatch Logs or S3. Used for security analysis, network troubleshooting, compliance auditing, and traffic pattern analysis.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q84.</span> What is the format of a VPC Flow Log record?</p>
+          <p class="answer"><b>Answer:</b> Default format: version account-id interface-id srcaddr dstaddr srcport dstport protocol packets bytes start end action log-status.
+Example: 2 123456789010 eni-1235b8ca3 172.31.16.139 172.31.16.21 20641 22 6 20 4249 1418530010 1418530070 ACCEPT OK
+Custom formats can include additional fields like vpc-id, subnet-id, tcp-flags, type, pkt-srcaddr.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q85.</span> What is AWS GuardDuty for network security?</p>
+          <p class="answer"><b>Answer:</b> GuardDuty is a threat detection service that continuously monitors for malicious activity using VPC Flow Logs, DNS logs, CloudTrail events, and EKS audit logs. It uses ML and threat intelligence to detect: port scanning, crypto mining, unusual DNS requests, compromised EC2 instances communicating with known malicious IPs, and anomalous API calls.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q86.</span> What is Route 53 Resolver DNS Firewall?</p>
+          <p class="answer"><b>Answer:</b> Route 53 Resolver DNS Firewall allows you to filter and control outbound DNS queries made by resources in your VPC. Create domain lists and rules to block, alert, or allow DNS queries to specific domains. Useful for preventing data exfiltration via DNS, blocking access to known malicious domains, and enforcing DNS egress policies. Managed via Firewall Manager.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q87.</span> What is MACsec in AWS Direct Connect?</p>
+          <p class="answer"><b>Answer:</b> MACsec (IEEE 802.1AE) provides Layer 2 encryption for Direct Connect connections. It encrypts traffic on the wire between your on-premises router and the AWS DX device, ensuring confidentiality and integrity even before it reaches the AWS network. Available on 10 Gbps and 100 Gbps dedicated DX connections. Provides hop-by-hop encryption at line rate.</p>
+        </div>
+        <hr>
+      <h2>Advanced Networking Services</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q88.</span> What is AWS Transit Gateway Network Manager?</p>
+          <p class="answer"><b>Answer:</b> Transit Gateway Network Manager provides a centralized global view of your private network built on Transit Gateways. It visualizes the network topology (VPCs, VPNs, DX connections), monitors network health and performance, and integrates with SD-WAN partners. Includes Route Analyzer (tests and visualizes routing paths) and event tracking.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q89.</span> What is AWS VPN CloudHub?</p>
+          <p class="answer"><b>Answer:</b> VPN CloudHub enables multiple remote sites (with Customer Gateways) to communicate with each other through a Virtual Private Gateway in a hub-and-spoke model. All traffic between sites flows via the VGW. Cost-effective for connecting multiple branch offices to each other and to AWS, using Site-to-Site VPN connections.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q90.</span> What is AWS PrivateLink vs VPC Peering?</p>
+          <p class="answer"><b>Answer:</b> VPC Peering: bidirectional routing between VPCs; VPCs must not have overlapping CIDRs; all resources in both VPCs can potentially communicate.
+PrivateLink: exposes specific services (via NLB) to consumers without full network access; supports overlapping CIDRs; unidirectional (consumer accesses provider service only); more secure and scalable for service-oriented architectures. Preferred for SaaS and multi-tenant service exposure.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q91.</span> What is Elastic Network Interface (ENI)?</p>
+          <p class="answer"><b>Answer:</b> An ENI is a virtual network card attached to an EC2 instance. It has: a primary private IPv4 address, one or more secondary private IPs, one Elastic IP per private IP, a public IPv4 address, one or more IPv6 addresses, MAC address, and security groups. Multiple ENIs can be attached to an instance (for dual-homed setups). ENIs can be detached and moved between instances.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q92.</span> What is Elastic IP (EIP)?</p>
+          <p class="answer"><b>Answer:</b> An Elastic IP is a static, public IPv4 address allocated to your AWS account. It can be associated with an EC2 instance or NAT Gateway and remapped to another instance (failover). Unlike regular public IPs that change on stop/start, EIPs remain until explicitly released. AWS charges for EIPs not associated with a running instance (to discourage IP hoarding).</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q93.</span> What is Enhanced Networking in AWS?</p>
+          <p class="answer"><b>Answer:</b> Enhanced Networking uses SR-IOV (Single Root I/O Virtualization) to provide higher bandwidth, higher PPS (packets per second), and lower inter-instance latency at no extra cost. Two options: ENA (Elastic Network Adapter) — up to 100 Gbps; Intel VF (Virtual Function) — up to 10 Gbps. Required for Placement Groups and high-performance networking workloads.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q94.</span> What is a Placement Group in AWS networking?</p>
+          <p class="answer"><b>Answer:</b> Placement Groups influence how EC2 instances are placed physically. Cluster: packs instances close together in a single AZ for ultra-low latency and high-throughput (10 Gbps+ between instances); risk: single point of failure. Spread: distributes instances across different hardware (max 7 per AZ) for HA. Partition: distributes instances across logical partitions that don't share hardware — for large distributed workloads (HDFS, Kafka, Cassandra).</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q95.</span> What is AWS Outposts networking?</p>
+          <p class="answer"><b>Answer:</b> AWS Outposts extends AWS infrastructure, services, and APIs to on-premises locations. Outpost subnets are connected to the parent VPC. Traffic between on-premises Outpost resources and AWS can use a local gateway (LGW) for routing to the on-premises network, or the service link (VPN tunnel to the parent region) for AWS service access.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q96.</span> What is the AWS Global Network?</p>
+          <p class="answer"><b>Answer:</b> The AWS global network is a private, high-bandwidth fiber network connecting all AWS regions, AZs, and edge locations. Traffic between AWS services in the same region never leaves this network. Global Accelerator and CloudFront use this network to route user traffic from edge locations to origin regions, avoiding the variable latency of the public internet.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q97.</span> What is Anycast in the context of AWS networking?</p>
+          <p class="answer"><b>Answer:</b> Anycast is a routing technique where multiple servers share the same IP address and traffic is routed to the nearest one. AWS Global Accelerator uses Anycast with two static IPs — user traffic is routed to the closest AWS edge location, then travels over the AWS backbone to the endpoint. Route 53 uses Anycast for its DNS servers, ensuring low-latency DNS resolution globally.</p>
+        </div>
+        <hr>
+      <h2>Monitoring & Troubleshooting</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q98.</span> How do you troubleshoot connectivity issues in AWS VPC?</p>
+          <p class="answer"><b>Answer:</b> 1. Check Security Group inbound/outbound rules.
+2. Check NACL rules (stateless — both directions needed).
+3. Check Route Table — correct routes for destination?
+4. Check if IGW/NAT Gateway is present and attached.
+5. Verify instance has a public IP or EIP (for internet access).
+6. Check VPC Reachability Analyzer.
+7. Review VPC Flow Logs for ACCEPT/REJECT.
+8. Verify OS-level firewall (iptables) is not blocking traffic.
+9. Check if the ENI is in the correct subnet.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q99.</span> What is VPC Reachability Analyzer?</p>
+          <p class="answer"><b>Answer:</b> Reachability Analyzer is a network diagnostics tool that analyzes network connectivity between two endpoints in your VPC without sending actual packets. It checks the configuration of security groups, NACLs, route tables, IGW, and other components to determine if a path exists. Returns hop-by-hop details and identifies the exact configuration blocking connectivity.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q100.</span> What is AWS Network Access Analyzer?</p>
+          <p class="answer"><b>Answer:</b> Network Access Analyzer identifies unintended network access to your AWS resources. You define a network access scope (what should not be reachable from where) and the tool analyzes your network configuration to find paths that violate your security requirements — e.g., internet-accessible RDS instances or direct paths from the internet to private subnets.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q101.</span> What is the difference between Reachability Analyzer and Network Access Analyzer?</p>
+          <p class="answer"><b>Answer:</b> Reachability Analyzer: analyzes a specific path between two defined endpoints — answers 'can A reach B?'.
+Network Access Analyzer: broader security analysis — identifies all unintended access paths across your entire network — answers 'what can reach my sensitive resources that shouldn't?'. Complementary tools for network security and troubleshooting.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q102.</span> What is AWS Transit Gateway Network Manager Route Analyzer?</p>
+          <p class="answer"><b>Answer:</b> Route Analyzer is a feature in TGW Network Manager that allows you to analyze routing in your Transit Gateway network. You specify source and destination (with optional middleboxes) and it shows the actual routing path through the TGW route tables, identifying misconfigurations or missing routes. Helps debug inter-VPC and on-premises connectivity.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q103.</span> How do you use VPC Flow Logs for troubleshooting?</p>
+          <p class="answer"><b>Answer:</b> Filter Flow Logs for the specific source/destination IP and port. Look for REJECT entries — these indicate security groups or NACLs are blocking traffic. If the flow shows ACCEPT but connectivity still fails, the issue is likely at the OS level or application. Use CloudWatch Insights queries or Athena (for S3-stored logs) to efficiently analyze large log volumes.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q104.</span> What is AWS CloudTrail for network troubleshooting?</p>
+          <p class="answer"><b>Answer:</b> CloudTrail logs API calls to AWS services, including network configuration changes. Useful for auditing: who changed a security group rule, when was a route table modified, who deleted a VPN connection. For security incidents, CloudTrail combined with Flow Logs provides a complete picture: what was configured (CloudTrail) and what traffic occurred (Flow Logs).</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q105.</span> What is the MTU in AWS and why does it matter?</p>
+          <p class="answer"><b>Answer:</b> MTU (Maximum Transmission Unit) is the largest packet size that can be transmitted. AWS supports: 9001 bytes (Jumbo Frames) within a VPC between supported instance types. 1500 bytes for internet traffic, VPN, and inter-region VPC Peering. Mismatched MTU causes packet fragmentation or drops (Path MTU Discovery issues). Use ping with Don't Fragment bit to test effective MTU.</p>
+        </div>
+        <hr>
+      <h2>Hybrid & Multi-Cloud Networking</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q106.</span> What is AWS Hybrid Architecture?</p>
+          <p class="answer"><b>Answer:</b> A hybrid architecture connects on-premises infrastructure with AWS cloud resources. Components: AWS Site-to-Site VPN (encrypted internet-based), AWS Direct Connect (private dedicated line), AWS Transit Gateway (central hub), Route 53 Resolver (hybrid DNS), AWS Directory Service (AD integration), and AWS Storage Gateway (hybrid storage). Provides a seamless extension of the data center into the cloud.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q107.</span> What are best practices for hybrid DNS in AWS?</p>
+          <p class="answer"><b>Answer:</b> 1. Use Route 53 Resolver Inbound Endpoint for on-premises to AWS DNS resolution.
+2. Use Route 53 Resolver Outbound Endpoint with forwarding rules for AWS to on-premises DNS.
+3. Create private hosted zones in Route 53 for AWS-side internal domains.
+4. Ensure on-premises DNS has forwarder rules for AWS private domains.
+5. Avoid split-brain DNS where possible.
+6. Test bidirectional name resolution during setup.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q108.</span> What is AWS Network Manager?</p>
+          <p class="answer"><b>Answer:</b> AWS Network Manager is a centralized hub for managing and monitoring your global network built on AWS Transit Gateways. It provides a visual topology map, performance metrics (latency, packet loss), event notifications, Route Analyzer, and integration with SD-WAN partners. Supports registering on-premises devices for an end-to-end network view.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q109.</span> What is SD-WAN integration with AWS?</p>
+          <p class="answer"><b>Answer:</b> AWS integrates with major SD-WAN vendors (Cisco, VMware, Fortinet, Palo Alto) via the AWS Transit Gateway Connect feature and Virtual WAN integrations. SD-WAN appliances connect to TGW using GRE tunnels and BGP, enabling automated branch office connectivity to AWS with policy-based routing, centralized management, and integration with the AWS backbone.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q110.</span> What is AWS Direct Connect SiteLink?</p>
+          <p class="answer"><b>Answer:</b> Direct Connect SiteLink enables direct data exchange between on-premises locations connected to AWS via Direct Connect, bypassing AWS regions. Traffic flows between DX locations over the AWS global network. Useful for connecting data centers across geographies with consistent, low-latency private connectivity without routing through an AWS region.</p>
+        </div>
+        <hr>
+      </body></html>

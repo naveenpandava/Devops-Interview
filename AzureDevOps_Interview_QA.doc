@@ -1,0 +1,706 @@
+﻿
+    <html xmlns:o="urn:schemas-microsoft-com:office:office"
+          xmlns:w="urn:schemas-microsoft-com:office:word"
+          xmlns="http://www.w3.org/TR/REC-html40">
+    <head>
+      <meta charset="UTF-8">
+      <title>Azure DevOps Interview Q&A</title>
+      <!--[if gte mso 9]>
+      <xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml>
+      <![endif]-->
+      <style>
+        body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #222; margin: 1in; }
+        h1 { font-size: 22pt; color: #0078d4; text-align: center; margin-bottom: 4pt; }
+        .subtitle { text-align: center; color: #555; font-size: 11pt; margin-bottom: 20pt; }
+        h2 { font-size: 14pt; color: #fff; background: #0078d4; padding: 5pt 10pt; margin-top: 22pt; margin-bottom: 0; }
+        .qa-block { margin: 8pt 0; border-left: 4pt solid #0078d4; padding-left: 10pt; }
+        .question { font-weight: bold; color: #003f7a; font-size: 11pt; margin-bottom: 3pt; }
+        .answer { font-size: 10.5pt; color: #333; margin: 0; line-height: 1.6; white-space: pre-wrap; }
+        .q-num { color: #0078d4; font-weight: bold; }
+        hr { border: none; border-top: 1pt solid #dde; margin: 6pt 0; }
+      </style>
+    </head>
+    <body>
+      <h1>☁️ Azure DevOps Interview Questions &amp; Answers</h1>
+      <p class="subtitle">104 Questions across 11 Categories</p>
+  <h2>Core Concepts & Overview</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q1.</span> What is Azure DevOps?</p>
+          <p class="answer"><b>Answer:</b> Azure DevOps is a Microsoft cloud-based platform that provides a set of development tools and services to support the entire software development lifecycle. It includes Azure Boards (work tracking), Azure Repos (source control), Azure Pipelines (CI/CD), Azure Test Plans (testing), and Azure Artifacts (package management).</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q2.</span> What are the five main services in Azure DevOps?</p>
+          <p class="answer"><b>Answer:</b> 1. Azure Boards – Agile project management: work items, Kanban boards, backlogs, sprints, and reporting.
+2. Azure Repos – Git or TFVC source code repositories.
+3. Azure Pipelines – CI/CD pipelines to build, test, and deploy to any platform or cloud.
+4. Azure Test Plans – Manual and exploratory testing tools.
+5. Azure Artifacts – Package feeds for NuGet, npm, Maven, Python, and Universal packages.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q3.</span> What is the difference between Azure DevOps Services and Azure DevOps Server?</p>
+          <p class="answer"><b>Answer:</b> Azure DevOps Services is the cloud-hosted SaaS version managed by Microsoft — no infrastructure to maintain, always up-to-date. Azure DevOps Server (formerly TFS) is the on-premises version installed on your own servers, giving full control over data and compliance but requiring self-management and upgrades.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q4.</span> What is an Azure DevOps Organization?</p>
+          <p class="answer"><b>Answer:</b> An Organization is the top-level container in Azure DevOps. It groups all projects, users, and billing. Each organization has a unique URL (https://dev.azure.com/OrgName). You can have multiple organizations. Licenses, extensions, and policies are managed at the organization level.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q5.</span> What is an Azure DevOps Project?</p>
+          <p class="answer"><b>Answer:</b> A Project is a container within an Organization that holds all related Azure DevOps resources: repos, pipelines, boards, test plans, and artifacts. Projects can be public or private. Teams, permissions, and settings are managed per project. Related services are usually grouped in one project.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q6.</span> What is the difference between a public and private project in Azure DevOps?</p>
+          <p class="answer"><b>Answer:</b> A public project allows anyone on the internet to view work items, repos, pipelines, and artifacts without signing in. A private project is only accessible to users explicitly added to the project. Public projects are useful for open-source development; private projects are for internal/commercial work.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q7.</span> What are Azure DevOps extensions?</p>
+          <p class="answer"><b>Answer:</b> Extensions are add-ons that enhance Azure DevOps functionality. They are available on the Visual Studio Marketplace and can add pipeline tasks, dashboard widgets, work item customizations, and integrations with third-party tools (Slack, SonarQube, Terraform, etc.). Installed at the organization level.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q8.</span> What is the Azure DevOps REST API?</p>
+          <p class="answer"><b>Answer:</b> The Azure DevOps REST API provides programmatic access to all Azure DevOps services. You can create/update work items, trigger pipelines, manage repos, query builds, and automate administration tasks. Authenticated via Personal Access Tokens (PAT), OAuth, or Azure AD tokens. Base URL: https://dev.azure.com/{org}/{project}/_apis/.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q9.</span> What is a Personal Access Token (PAT) in Azure DevOps?</p>
+          <p class="answer"><b>Answer:</b> A PAT is an authentication token used to access Azure DevOps REST APIs and tools like Git, NuGet, npm, and Azure CLI without using a password. PATs are scoped to specific permissions and have an expiration date. They should be stored securely and rotated regularly.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q10.</span> What is the Azure DevOps CLI?</p>
+          <p class="answer"><b>Answer:</b> The Azure DevOps CLI (az devops) is an extension for the Azure CLI that allows managing Azure DevOps resources from the command line. You can manage pipelines, repos, boards, and more. Useful for automation, scripting, and CI/CD tasks without the UI. Authenticate with az login or PAT.</p>
+        </div>
+        <hr>
+      <h2>Azure Boards</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q11.</span> What is Azure Boards?</p>
+          <p class="answer"><b>Answer:</b> Azure Boards is a work-tracking service in Azure DevOps that provides Agile project management tools. It includes work items, Kanban boards, backlogs, sprint planning, and reporting dashboards. It supports Agile, Scrum, CMMI, and custom process templates.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q12.</span> What is a Work Item in Azure Boards?</p>
+          <p class="answer"><b>Answer:</b> A Work Item is a database record used to track work in Azure Boards. Types include Epics, Features, User Stories, Tasks, Bugs, Issues, and Test Cases (depending on process template). Each work item has fields (title, description, state, priority, assignee) and can be linked to other items, commits, and PRs.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q13.</span> What are the process templates in Azure Boards?</p>
+          <p class="answer"><b>Answer:</b> Basic – simplest template; uses Issues and Tasks. Suitable for small teams.
+Agile – follows Agile methodology with Epics, Features, User Stories, Tasks, Bugs.
+Scrum – uses Product Backlog Items (PBIs), Sprints, Bugs, and Impediments.
+CMMI – Capability Maturity Model Integration; formal processes for regulated industries.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q14.</span> What is the difference between an Epic, Feature, and User Story?</p>
+          <p class="answer"><b>Answer:</b> Epic – the highest-level work item representing a large body of work spanning multiple sprints or quarters.
+Feature – a shippable piece of functionality within an Epic, completed within a few sprints.
+User Story – a small, specific requirement from the end-user perspective, completable in one sprint.
+They form a hierarchy: Epic &gt; Feature &gt; User Story &gt; Task.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q15.</span> What is a Sprint in Azure Boards?</p>
+          <p class="answer"><b>Answer:</b> A Sprint (called Iteration in Azure DevOps) is a fixed time period (usually 1–4 weeks) during which a Scrum team works to complete a set of work items from the Sprint Backlog. Sprint planning, Sprint Review, and Retrospective ceremonies are planned around it. Work items are assigned to sprints via the Sprint Board.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q16.</span> What is a Kanban Board in Azure Boards?</p>
+          <p class="answer"><b>Answer:</b> The Kanban Board visualizes work items as cards on columns representing workflow states (To Do, In Progress, Done, etc.). Teams use it to track and manage flow, limit work-in-progress (WIP), and identify bottlenecks. It is always up-to-date and reflects the backlog and active work.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q17.</span> What is the Azure Boards Backlog?</p>
+          <p class="answer"><b>Answer:</b> The Backlog is a prioritized list of all outstanding work items (Stories, PBIs, Bugs) for a team. There are portfolio backlogs (Epics, Features) and team backlogs (Stories, PBIs). Teams use backlog refinement to estimate, prioritize, and break down work before sprint planning.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q18.</span> What are Work Item queries in Azure Boards?</p>
+          <p class="answer"><b>Answer:</b> Work Item Queries let you search and filter work items using conditions (e.g., state = Active, assigned to = me). Query types: Flat list (simple list), Tree of work items (hierarchy), Work items and direct links. Saved queries can be shared with the team, added to dashboards, and used in automated workflows.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q19.</span> What is the difference between Area and Iteration in Azure Boards?</p>
+          <p class="answer"><b>Answer:</b> Area paths represent the feature/component structure of a project (e.g., Frontend, Backend, Infrastructure). Iteration paths represent the time structure (Sprints, Releases). Work items are assigned both an Area (what it belongs to) and an Iteration (when it will be done), enabling team-based filtering and sprint planning.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q20.</span> What are Delivery Plans in Azure Boards?</p>
+          <p class="answer"><b>Answer:</b> Delivery Plans provide a calendar-based view of work items across multiple teams and sprints. They show Epics/Features scheduled across iterations, enabling cross-team planning and dependency management. Useful for program managers and stakeholders to track progress at a portfolio level.</p>
+        </div>
+        <hr>
+      <h2>Azure Repos</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q21.</span> What is Azure Repos?</p>
+          <p class="answer"><b>Answer:</b> Azure Repos is the source control service in Azure DevOps. It supports two types of version control: Git (distributed) and TFVC (Team Foundation Version Control, centralized). Most teams use Git. It provides unlimited private Git repositories, pull requests, branch policies, and code search.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q22.</span> What is the difference between Git and TFVC in Azure Repos?</p>
+          <p class="answer"><b>Answer:</b> Git is a distributed version control system where every developer has a full copy of the repository. It supports branching/merging easily and is the industry standard. TFVC is a centralized system where there is one central repo and developers check files in/out. Git is strongly preferred for modern development.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q23.</span> What is a Pull Request (PR) in Azure Repos?</p>
+          <p class="answer"><b>Answer:</b> A Pull Request is a mechanism to propose and review code changes before merging them into a target branch. PRs include a diff view, comment threads, reviewer assignments, linked work items, and pipeline check status. They are the primary code review and quality gate mechanism in Git workflows.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q24.</span> What are Branch Policies in Azure Repos?</p>
+          <p class="answer"><b>Answer:</b> Branch Policies enforce quality standards on branches (typically main/master). Policies can require: minimum number of reviewers, linked work items, successful build validation (CI check), passing status checks, comment resolution, and merge strategy (merge commit, squash, rebase). PRs must meet all policies before merging.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q25.</span> What is a Branch Strategy in Azure DevOps?</p>
+          <p class="answer"><b>Answer:</b> Common strategies: Trunk-Based Development (all developers commit to main frequently), GitFlow (main, develop, feature, release, hotfix branches), GitHub Flow (main + short-lived feature branches + PRs). The choice depends on team size, release frequency, and deployment model.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q26.</span> What is the difference between merge, squash merge, and rebase in Azure Repos?</p>
+          <p class="answer"><b>Answer:</b> Merge – preserves full commit history with a merge commit.
+Squash Merge – combines all PR commits into one commit on the target branch; cleaner history but loses individual commit details.
+Rebase and fast-forward – replays PR commits on top of the target branch; linear history, no merge commit. Branch policy can enforce a specific strategy.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q27.</span> What are Protected Branches in Azure Repos?</p>
+          <p class="answer"><b>Answer:</b> Protected branches (main, release) are secured by branch policies. Direct pushes are blocked — changes must go through a Pull Request. Policies ensure all code is reviewed, tested, and meets quality gates before being merged. This protects production code from accidental or untested changes.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q28.</span> What is Code Search in Azure Repos?</p>
+          <p class="answer"><b>Answer:</b> Code Search is an extension that provides full-text search across all repositories in an organization. You can search for code, work items, wiki content, and packages. Supports filters by repo, branch, file type, and path. Useful for finding usages, security audits, and code exploration.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q29.</span> What is a Fork in Azure Repos?</p>
+          <p class="answer"><b>Answer:</b> A Fork creates a full copy of a repository under a different user or project. Forks are used in open-source workflows where external contributors develop changes in their own fork and submit PRs back to the original repo. The fork shares the original's commit history but has its own branches and settings.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q30.</span> What are Git tags in Azure Repos?</p>
+          <p class="answer"><b>Answer:</b> Git tags are references to specific points in Git history, typically used to mark release versions (v1.0.0, v2.1.3). Azure Repos supports lightweight and annotated tags. Tags can trigger pipelines (trigger: tags:). They are immutable and serve as release checkpoints.</p>
+        </div>
+        <hr>
+      <h2>Azure Pipelines – CI/CD Fundamentals</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q31.</span> What is Azure Pipelines?</p>
+          <p class="answer"><b>Answer:</b> Azure Pipelines is a cloud-based CI/CD service in Azure DevOps. It automatically builds, tests, and deploys code to any platform or cloud. It supports any language (Java, .NET, Python, Node.js, Go, etc.) and integrates with GitHub, Azure Repos, Bitbucket, and other Git providers.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q32.</span> What is the difference between Classic Pipelines and YAML Pipelines?</p>
+          <p class="answer"><b>Answer:</b> Classic Pipelines are configured via the Azure DevOps UI (drag-and-drop tasks), stored in Azure DevOps (not source control), and split into separate Build and Release pipelines. YAML Pipelines define the entire CI/CD workflow as code in a YAML file stored in the repo — enabling version control, PR reviews, and pipeline-as-code. YAML is the recommended modern approach.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q33.</span> What is a YAML pipeline file?</p>
+          <p class="answer"><b>Answer:</b> A YAML pipeline file (typically azure-pipelines.yml) is a text file stored in the repository root that defines the entire pipeline: triggers, agent pools, variables, stages, jobs, and steps. It is version-controlled, reviewable, and enables pipeline-as-code best practices.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q34.</span> What is the basic structure of an Azure Pipelines YAML file?</p>
+          <p class="answer"><b>Answer:</b> trigger: [main]
+pool:
+  vmImage: 'ubuntu-latest'
+variables:
+  buildConfiguration: 'Release'
+stages:
+- stage: Build
+  jobs:
+  - job: BuildJob
+    steps:
+    - task: DotNetCoreCLI@2
+      inputs:
+        command: 'build'
+- stage: Deploy
+  jobs:
+  - deployment: DeployJob
+    environment: 'Production'</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q35.</span> What is the difference between a Stage, Job, and Step in Azure Pipelines?</p>
+          <p class="answer"><b>Answer:</b> Stage – a logical boundary grouping related jobs (Build, Test, Deploy). Stages run sequentially by default; can be parallelized.
+Job – a unit of work that runs on an agent. Each job gets a fresh agent. Jobs within a stage can run in parallel.
+Step – the smallest unit; a single task or script within a job. Steps run sequentially within a job.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q36.</span> What is a trigger in Azure Pipelines?</p>
+          <p class="answer"><b>Answer:</b> A trigger defines when a pipeline runs automatically. CI trigger – runs on code push to specified branches. PR trigger – runs on pull request creation/update. Scheduled trigger – runs on a cron schedule. Pipeline trigger – runs when another pipeline completes. Resource trigger – runs when an artifact or container image is updated.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q37.</span> What is a Microsoft-hosted agent in Azure Pipelines?</p>
+          <p class="answer"><b>Answer:</b> Microsoft-hosted agents are managed by Microsoft. Azure provides fresh VMs (Windows, Ubuntu, macOS) for each job and destroys them after the job completes. They come pre-installed with common tools. No maintenance required. Limitations: 10GB disk, limited customization, and usage-based billing for private projects.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q38.</span> What is a self-hosted agent in Azure Pipelines?</p>
+          <p class="answer"><b>Answer:</b> A self-hosted agent is a machine you manage and register with Azure Pipelines. It can be a physical server, VM, Docker container, or Kubernetes pod. Benefits: persistent workspace/cache, custom tools, access to on-prem resources, and no usage limits. Requires maintenance and security patching.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q39.</span> What is an Agent Pool in Azure Pipelines?</p>
+          <p class="answer"><b>Answer:</b> An Agent Pool is a collection of agents. The default pool (Azure Pipelines) uses Microsoft-hosted agents. Custom pools group self-hosted agents by capability or environment. Pipelines target a pool using the pool: directive. Organization-level pools can be shared across projects; project-level pools are project-specific.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q40.</span> What are pipeline variables in Azure Pipelines?</p>
+          <p class="answer"><b>Answer:</b> Variables store values used throughout the pipeline. Types: user-defined (set in YAML or UI), system variables (Build.BuildId, Build.SourceBranch), environment variables, and secret variables (marked secret, masked in logs). Variables can be set at pipeline, stage, or job level and passed between jobs using output variables.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q41.</span> What is a variable group in Azure Pipelines?</p>
+          <p class="answer"><b>Answer:</b> A Variable Group is a shared set of variables stored at the project or organization level that can be referenced by multiple pipelines. Useful for shared configuration (connection strings, environment-specific settings). Variable groups can be linked to Azure Key Vault to automatically sync secrets.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q42.</span> What is a pipeline template in Azure Pipelines?</p>
+          <p class="answer"><b>Answer:</b> Templates allow reusing pipeline YAML across multiple pipelines. A template file defines reusable stages, jobs, or steps with parameters. Referenced with the extends or template keyword. Promotes DRY principles, standardizes CI/CD patterns across teams, and can enforce required steps (security scans, compliance checks).</p>
+        </div>
+        <hr>
+      <h2>Azure Pipelines – Advanced & Release</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q43.</span> What is a Release Pipeline in Azure DevOps?</p>
+          <p class="answer"><b>Answer:</b> A Release Pipeline (Classic) is the deployment component of Azure DevOps. It takes build artifacts and deploys them through multiple stages (Dev, QA, Staging, Production) with approval gates, deployment conditions, and rollback capabilities. YAML pipelines with deployment jobs are the modern equivalent.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q44.</span> What is an Environment in Azure Pipelines?</p>
+          <p class="answer"><b>Answer:</b> An Environment is a logical target for deployments (Dev, Staging, Production). It tracks deployment history, shows which versions are deployed where, and supports approval gates and checks. Environments can target Kubernetes namespaces, VMs (via the deployment agent), or be generic deployment targets.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q45.</span> What are Approvals and Gates in Azure Pipelines?</p>
+          <p class="answer"><b>Answer:</b> Approvals require a human to manually approve a deployment before a stage proceeds. Gates are automated checks that must pass before a stage starts or after it completes — examples: checking Azure Monitor alerts, querying a REST API, verifying work item queries. Together they form quality and compliance controls for deployments.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q46.</span> What is a deployment job in Azure Pipelines YAML?</p>
+          <p class="answer"><b>Answer:</b> A deployment job (deployment:) is a special job type for deploying to an Environment. It supports deployment strategies (runOnce, rolling, canary), tracks deployment history in the Environment, and provides lifecycle hooks (preDeploy, deploy, routeTraffic, postRouteTraffic, on: failure/success). Required for environment-based deployments.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q47.</span> What deployment strategies does Azure Pipelines support?</p>
+          <p class="answer"><b>Answer:</b> runOnce – deploys once; simple sequential deploy.
+Rolling – replaces old instances with new ones incrementally across multiple targets.
+Canary – deploys to a small percentage of targets first, validates, then deploys to the rest.
+Blue-Green – not natively built-in but achievable with deployment slots or manual slot-swap tasks.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q48.</span> What is a service connection in Azure Pipelines?</p>
+          <p class="answer"><b>Answer:</b> A Service Connection stores authentication credentials for connecting pipelines to external services (Azure subscription, GitHub, Docker Hub, Kubernetes cluster, SonarQube, etc.). Credentials are encrypted and managed centrally. Pipelines reference them by name without exposing secrets. Managed in Project Settings &gt; Service Connections.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q49.</span> What is the Azure Resource Manager (ARM) service connection?</p>
+          <p class="answer"><b>Answer:</b> An ARM service connection authenticates Azure Pipelines to deploy to Azure resources. It uses a Service Principal (App Registration in Azure AD) with a specific scope (subscription or resource group). Pipelines use it with Azure tasks (AzureWebApp@1, AzureCLI@2, AzureResourceManagerTemplateDeployment@3).</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q50.</span> What are pipeline artifacts vs build artifacts?</p>
+          <p class="answer"><b>Answer:</b> Build artifacts (PublishBuildArtifacts@1) are the older mechanism stored in Azure DevOps. Pipeline artifacts (PublishPipelineArtifact@1) are the newer, faster mechanism using Azure Blob Storage. Pipeline artifacts support download across stages and pipelines, are faster to publish/download, and are preferred for YAML pipelines.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q51.</span> What is a multi-stage YAML pipeline?</p>
+          <p class="answer"><b>Answer:</b> A multi-stage pipeline defines the full CI/CD workflow (build, test, deploy to dev, deploy to prod) in a single YAML file with multiple stage: blocks. Stages can have dependencies (dependsOn:), conditions, and approval gates. This replaces separate Build and Release pipelines, unifying CI and CD in one file.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q52.</span> What is a cron schedule trigger in Azure Pipelines?</p>
+          <p class="answer"><b>Answer:</b> A scheduled trigger runs a pipeline automatically at defined intervals using cron syntax. Example:
+schedules:
+- cron: '0 2 * * *'
+  displayName: Nightly Build
+  branches:
+    include: [main]
+  always: true
+This runs every day at 2am UTC on the main branch, even if there are no code changes (always: true).</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q53.</span> What is the difference between dependsOn and condition in pipeline stages?</p>
+          <p class="answer"><b>Answer:</b> dependsOn specifies which stage(s) must complete before this stage runs, controlling execution order. condition defines a logical expression that must evaluate to true for the stage/job/step to run. Example: condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main')) runs only on the main branch after success.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q54.</span> What are pipeline resources in Azure Pipelines?</p>
+          <p class="answer"><b>Answer:</b> Resources declare external dependencies for a pipeline: other pipelines (pipelines:), repositories (repositories:), container images (containers:), packages (packages:), and webhooks. They enable pipeline triggers (run when another pipeline finishes), repository checkouts, and container agent definitions.</p>
+        </div>
+        <hr>
+      <h2>Azure Artifacts</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q55.</span> What is Azure Artifacts?</p>
+          <p class="answer"><b>Answer:</b> Azure Artifacts is a package management service in Azure DevOps. It provides hosted package feeds for NuGet (.NET), npm (JavaScript), Maven (Java), Python (pip), Cargo (Rust), and Universal packages. It supports both internal packages and upstream sources (proxying public registries like nuget.org, npmjs.com).</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q56.</span> What is a feed in Azure Artifacts?</p>
+          <p class="answer"><b>Answer:</b> A feed is a container for packages in Azure Artifacts. You publish packages to a feed and consume them from it. Feeds can be project-scoped (accessible within a project) or organization-scoped (accessible across all projects). Each feed has its own URL used to configure package managers.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q57.</span> What are upstream sources in Azure Artifacts?</p>
+          <p class="answer"><b>Answer:</b> Upstream sources allow a feed to proxy and cache packages from public registries (nuget.org, npmjs.com, pypi.org, Maven Central). When a package is requested, Azure Artifacts checks the feed first, then the upstream. Matched packages are saved in the feed, providing caching and governance over public packages.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q58.</span> What is Universal Package in Azure Artifacts?</p>
+          <p class="answer"><b>Answer:</b> Universal Packages allow storing any type of file as a versioned package (not just language-specific formats). They are useful for storing build outputs, binary assets, tools, and scripts. Published/downloaded with the Universal Packages task or the Azure CLI (az artifacts universal publish/download).</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q59.</span> How do you authenticate to Azure Artifacts feeds in a pipeline?</p>
+          <p class="answer"><b>Answer:</b> Use the NuGetAuthenticate@1, npmAuthenticate@0, or MavenAuthenticate@0 tasks at the beginning of the pipeline job. These tasks configure the package manager's credential store using the pipeline's built-in identity (System.AccessToken or a service connection), enabling authenticated feed access without hardcoded credentials.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q60.</span> What is package versioning in Azure Artifacts?</p>
+          <p class="answer"><b>Answer:</b> Azure Artifacts follows Semantic Versioning (SemVer): MAJOR.MINOR.PATCH (e.g., 1.4.2). Pre-release versions are marked with suffixes (1.4.2-beta). Packages are immutable once published at a version — you cannot overwrite an existing version. Versioning ensures reproducible builds and dependency management.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q61.</span> What are package views in Azure Artifacts?</p>
+          <p class="answer"><b>Answer:</b> Views are virtual partitions within a feed that promote packages through quality gates. Default views: @local (all packages published to the feed), @prerelease (pre-release packages), @release (stable/promoted packages). Pipelines promote packages from @prerelease to @release after passing tests, giving consumers a stable channel.</p>
+        </div>
+        <hr>
+      <h2>Azure Test Plans</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q62.</span> What is Azure Test Plans?</p>
+          <p class="answer"><b>Answer:</b> Azure Test Plans is a test management service in Azure DevOps. It provides tools for manual testing, exploratory testing, and user acceptance testing (UAT). It manages test plans, test suites, and test cases, tracks test results, and integrates with Boards (work items) and Pipelines (automated tests).</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q63.</span> What is a Test Plan in Azure Test Plans?</p>
+          <p class="answer"><b>Answer:</b> A Test Plan is a container for organizing test suites and test cases for a specific release or sprint. It defines the test scope, test environment, and build to test. Test Plans track overall progress (total tests, passed, failed, blocked) and link to work items and builds.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q64.</span> What is the difference between a Test Suite and Test Case?</p>
+          <p class="answer"><b>Answer:</b> A Test Suite is a grouping of test cases within a Test Plan. Types: Static (manually added), Requirements-based (linked to User Stories/PBIs), Query-based (auto-populated from a work item query). A Test Case is an individual test with steps, expected results, and associated data. Test Suites organize Test Cases.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q65.</span> What is exploratory testing in Azure Test Plans?</p>
+          <p class="answer"><b>Answer:</b> Exploratory testing is unscripted, simultaneous learning and testing. The Test &amp; Feedback (browser extension) by Microsoft supports exploratory testing — testers explore the app, capture screenshots/videos, file bugs, and create test cases directly from findings. Sessions are tracked in Azure DevOps.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q66.</span> How do you link automated tests to test cases in Azure Test Plans?</p>
+          <p class="answer"><b>Answer:</b> In Visual Studio or VS Code, associate an automated test (unit/integration test method) with a Test Case work item. The test case stores the automation details. In the Test Plan, run the automated tests against a specific build and environment. Results flow back to Test Plans, combining manual and automated test tracking.</p>
+        </div>
+        <hr>
+      <h2>Security & Access Management</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q67.</span> What are the access levels in Azure DevOps?</p>
+          <p class="answer"><b>Answer:</b> Basic – most common; access to Boards, Repos, Pipelines, Artifacts (includes free tier).
+Stakeholder – free; limited to Boards (view/add work items) and dashboards. No access to Repos, Pipelines.
+Basic + Test Plans – includes Azure Test Plans.
+Visual Studio Subscriber – via VS subscription. Access level is set per user in Organization Settings.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q68.</span> What are Security Groups in Azure DevOps?</p>
+          <p class="answer"><b>Answer:</b> Security Groups control what actions users can perform. Built-in groups: Project Administrators (full project control), Build Administrators (manage pipelines), Contributors (push code, create PRs, run pipelines), Readers (view only). Users can belong to multiple groups. Custom groups can be created.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q69.</span> What is the principle of least privilege in Azure DevOps?</p>
+          <p class="answer"><b>Answer:</b> Assign users the minimum permissions needed to perform their role. Don't add everyone to Project Administrators. Use Contributors for developers, Readers for stakeholders. Restrict pipeline service connections to specific pipelines. Audit group memberships regularly. Use branch policies instead of restricting push access directly.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q70.</span> What is Azure Active Directory (AAD) integration with Azure DevOps?</p>
+          <p class="answer"><b>Answer:</b> Azure DevOps can be connected to an Azure Active Directory tenant. This enables Single Sign-On (SSO), conditional access policies, MFA enforcement, and synchronizing AAD groups with Azure DevOps security groups. AAD-backed organizations provide centralized identity management for the entire organization.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q71.</span> What are service principals in Azure DevOps?</p>
+          <p class="answer"><b>Answer:</b> Service Principals are Azure AD application identities used by Azure Pipelines service connections to authenticate to Azure resources. They have scoped RBAC roles (e.g., Contributor on a resource group). Workload Identity Federation (OIDC) is the modern approach, eliminating the need for managing service principal secrets.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q72.</span> What is Workload Identity Federation in Azure Pipelines?</p>
+          <p class="answer"><b>Answer:</b> Workload Identity Federation (OIDC) allows Azure Pipelines to authenticate to Azure without storing service principal secrets or certificates. The pipeline presents an OIDC token issued by Azure DevOps, and Azure AD trusts it to issue an access token. No secrets to rotate or leak — the most secure service connection type.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q73.</span> What are pipeline permissions and how do you restrict them?</p>
+          <p class="answer"><b>Answer:</b> Pipeline permissions control which pipelines can use resources (service connections, agent pools, variable groups, environments, artifact feeds). By default, resources may be open to all pipelines in a project. Best practice: restrict each resource to only the specific pipelines that need it (in Resource &gt; Security &gt; Pipeline permissions).</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q74.</span> What is audit logging in Azure DevOps?</p>
+          <p class="answer"><b>Answer:</b> Azure DevOps audit logs record security-relevant events: user sign-ins, permission changes, policy modifications, pipeline runs, and more. Available in Organization Settings &gt; Auditing. Logs can be exported to Azure Monitor, Splunk, or other SIEM tools for compliance and security monitoring. Retained for 90 days by default.</p>
+        </div>
+        <hr>
+      <h2>Infrastructure & Integrations</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q75.</span> How does Azure Pipelines integrate with Azure services?</p>
+          <p class="answer"><b>Answer:</b> Azure Pipelines has built-in tasks for all major Azure services: Azure App Service (AzureWebApp@1), Azure Kubernetes Service (Kubernetes@1), Azure Functions (AzureFunctionApp@1), Azure Container Registry, Azure SQL, ARM/Bicep deployments, Azure CLI (AzureCLI@2), and Azure PowerShell. Authentication uses ARM service connections.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q76.</span> How do you deploy to Azure Kubernetes Service (AKS) from Azure Pipelines?</p>
+          <p class="answer"><b>Answer:</b> 1. Create a Kubernetes service connection to AKS.
+2. Use the KubernetesManifest@1 task to deploy manifests.
+3. Or use Helm (HelmDeploy@0) for Helm-based deployments.
+4. Use the deployment job with an AKS Environment for history tracking and approvals.
+5. Build and push Docker images to ACR first, then reference them in manifests.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q77.</span> How do you deploy an Azure App Service from Azure Pipelines?</p>
+          <p class="answer"><b>Answer:</b> Build the app (dotnet publish, npm run build, etc.), publish the artifact, then use the AzureWebApp@1 task in a deployment stage with an ARM service connection. For deployment slots, use AzureWebApp@1 with deployToSlotOrASE: true and slotName: staging, then swap slots after validation.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q78.</span> What is Terraform integration with Azure Pipelines?</p>
+          <p class="answer"><b>Answer:</b> Terraform pipelines use either shell tasks (terraform init, plan, apply) or the TerraformTaskV4 extension. Best practice: store Terraform state in Azure Storage (remote backend), use separate pipelines for plan and apply, require approval before apply, and store sensitive variables in Key Vault or secret variable groups.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q79.</span> How do you integrate SonarQube or SonarCloud with Azure Pipelines?</p>
+          <p class="answer"><b>Answer:</b> Add the SonarQube/SonarCloud extension from Marketplace. Add tasks: SonarQubePrepare@6 (configure analysis), your build task, SonarQubeAnalyze@6 (run analysis), SonarQubePublish@6 (publish results). Use the quality gate result to fail the build if code quality thresholds are not met.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q80.</span> How does Azure Pipelines integrate with GitHub?</p>
+          <p class="answer"><b>Answer:</b> Azure Pipelines can use GitHub repositories as the source. Create a GitHub service connection. YAML pipelines can be stored in the GitHub repo. PRs in GitHub trigger validation pipelines. Status checks from Azure Pipelines appear directly in GitHub PRs. OAuth or GitHub App authentication is used.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q81.</span> What is Azure Container Registry (ACR) and how is it used in pipelines?</p>
+          <p class="answer"><b>Answer:</b> ACR is a private Docker registry in Azure. Pipelines build Docker images and push to ACR using the Docker@2 task with an ACR service connection. Images are tagged with build numbers or git SHAs. AKS, Azure App Service, and other services pull images from ACR. Admin credentials or managed identities authenticate.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q82.</span> What is Azure Key Vault integration with Azure Pipelines?</p>
+          <p class="answer"><b>Answer:</b> The AzureKeyVault@2 task downloads Key Vault secrets as pipeline variables at the start of a job. Alternatively, link Key Vault to a Variable Group in Library — secrets sync automatically. The pipeline's service principal needs Get and List permissions on Key Vault secrets. Secrets are masked in logs.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q83.</span> How do you implement blue-green deployments using Azure App Service and Azure Pipelines?</p>
+          <p class="answer"><b>Answer:</b> Azure App Service Deployment Slots enable blue-green deployments. Pipeline stages: 1) Deploy to staging slot using AzureWebApp@1 with slotName: staging. 2) Run smoke tests against the staging slot URL. 3) If tests pass, swap slots using AzureAppServiceManage@0 with action: Swap Slots. The staging slot becomes production instantly with zero downtime.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q84.</span> What is Managed Identity and how is it used in Azure DevOps?</p>
+          <p class="answer"><b>Answer:</b> A Managed Identity is an Azure AD identity automatically managed by Azure for Azure resources. Self-hosted agents on Azure VMs can use the VM's managed identity to authenticate to Azure services without credentials. The managed identity is assigned RBAC roles. No secrets to manage or rotate — more secure than service principals with passwords.</p>
+        </div>
+        <hr>
+      <h2>Best Practices & Governance</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q85.</span> What is pipeline-as-code and why is it important in Azure DevOps?</p>
+          <p class="answer"><b>Answer:</b> Pipeline-as-code means defining CI/CD workflows in YAML files stored in source control alongside application code. Benefits: version history, code review via PRs, branch-specific pipelines, easy disaster recovery, auditability, and reuse via templates. Eliminates 'config drift' from UI-based pipeline configurations.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q86.</span> How do you implement branch strategies in Azure DevOps?</p>
+          <p class="answer"><b>Answer:</b> Common strategies: Trunk-Based (commit to main, use feature flags for incomplete features), GitFlow (main/develop/feature/release/hotfix branches), GitHub Flow (main + short-lived feature branches). Enforce with branch policies: require PRs, minimum approvers, CI build validation, and prevent direct pushes to protected branches.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q87.</span> What are Azure DevOps best practices for YAML pipelines?</p>
+          <p class="answer"><b>Answer:</b> 1. Use templates for reusable stages/jobs/steps.
+2. Store all YAML in source control.
+3. Use variable groups and Key Vault for secrets — never hardcode.
+4. Pin task versions (e.g., DotNetCoreCLI@2) to avoid breaking changes.
+5. Run stages in parallel where possible.
+6. Add meaningful display names to all steps.
+7. Use environments with approval gates for production.
+8. Implement notifications for failures.
+9. Cache dependencies (Cache@2) to speed up builds.
+10. Regularly review and rotate service connection credentials.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q88.</span> What is the Caching task in Azure Pipelines?</p>
+          <p class="answer"><b>Answer:</b> The Cache@2 task caches files between pipeline runs to reduce build times. Define a key (hash of package-lock.json, pom.xml, etc.) and a path to cache (node_modules, .m2/repository). On the next run, if the key matches, the cache is restored. Especially effective for npm, Maven, NuGet, and pip dependencies.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q89.</span> What is shift-left testing in Azure DevOps?</p>
+          <p class="answer"><b>Answer:</b> Shift-left means moving testing earlier in the development lifecycle. In Azure DevOps: run unit tests in every PR pipeline, run security scans (SAST) in CI, enforce code coverage thresholds, use branch policies to require passing builds. Catching defects early reduces cost and improves quality.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q90.</span> What are compliance and governance features in Azure DevOps?</p>
+          <p class="answer"><b>Answer:</b> Branch policies (enforce reviews and CI), Approval gates on deployments, RBAC and security groups, Audit logs (track all changes), Compliance checks via pipeline gates (Azure Policy, security scanners), Required templates (pipeline extends must include security steps), and Azure AD integration for identity governance.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q91.</span> How do you handle multi-environment deployments in Azure DevOps?</p>
+          <p class="answer"><b>Answer:</b> Define separate pipeline stages for each environment (Dev, QA, Staging, Production). Use variable groups per environment for environment-specific configs. Add approval gates before Production. Use Environments to track deployment history. Deploy to lower environments automatically; require manual approval for Production. Use conditions to only deploy on specific branches.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q92.</span> What is traceability in Azure DevOps?</p>
+          <p class="answer"><b>Answer:</b> Traceability links work items, commits, PRs, builds, and deployments. A User Story is linked to commits (via #ID in commit message), PRs (linked work items), builds (build triggers), and deployments (environment history). This end-to-end traceability shows what code change deployed what feature to which environment and when.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q93.</span> What is Azure DevOps Notifications?</p>
+          <p class="answer"><b>Answer:</b> Notifications alert team members about events: build failures, PR assignments, work item updates, release deployments, etc. Configured in User Settings (personal) or Team/Project settings (team-wide). Supports email and integrations with Slack, Microsoft Teams (via service hooks). Service Hooks enable real-time integrations with external services.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q94.</span> What are Service Hooks in Azure DevOps?</p>
+          <p class="answer"><b>Answer:</b> Service Hooks enable Azure DevOps to send event-driven notifications to external services when something happens. Events: build completed, code pushed, PR created, release deployed, work item updated. Targets: Slack, Microsoft Teams, Jenkins, ServiceNow, Zapier, Webhooks (any HTTP endpoint). Configured in Project Settings &gt; Service Hooks.</p>
+        </div>
+        <hr>
+      <h2>Advanced Topics</h2>
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q95.</span> What is Azure DevOps parallel jobs and how does billing work?</p>
+          <p class="answer"><b>Answer:</b> Parallel jobs determine how many pipelines can run simultaneously. Microsoft-hosted agents: free tier includes 1 parallel job for private projects (1800 min/month); additional jobs are paid. Self-hosted agents: unlimited parallel jobs with the first being free per active user. More parallel jobs reduce queue time for large teams.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q96.</span> What is a matrix strategy in Azure Pipelines?</p>
+          <p class="answer"><b>Answer:</b> Matrix strategy runs the same job multiple times with different variable combinations. Example: testing across multiple Node.js versions or OS platforms simultaneously. Defined with strategy: matrix: under a job. Each combination runs as a separate job in parallel, significantly reducing multi-configuration test time.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q97.</span> What is the Azure Pipelines Decorators feature?</p>
+          <p class="answer"><b>Answer:</b> Pipeline Decorators are an extension mechanism that automatically inject steps into every pipeline in an organization — before and/or after every job. Used by platform teams to enforce compliance: mandatory security scans, credential rotation, audit logging, or telemetry. Developers cannot remove or bypass decorator steps.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q98.</span> What is Deployment Groups in Azure Pipelines (Classic)?</p>
+          <p class="answer"><b>Answer:</b> Deployment Groups are a Classic Release pipeline feature for deploying to multiple machines (VMs, physical servers). Agents are registered on each target machine and tagged. The Release pipeline targets the group, distributing deployment tasks across machines. The modern YAML equivalent uses Environments with VM resources.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q99.</span> What is the difference between Azure Pipelines and GitHub Actions?</p>
+          <p class="answer"><b>Answer:</b> Azure Pipelines supports more complex enterprise scenarios: multi-stage YAML, approval gates, deployment environments, self-hosted agents, Deployment Groups, and deep Azure integration. GitHub Actions is tightly integrated with GitHub, simpler to set up for GitHub-hosted repos, and has a larger community marketplace. Both can be used together.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q100.</span> What is Bicep and how does it integrate with Azure Pipelines?</p>
+          <p class="answer"><b>Answer:</b> Bicep is a domain-specific language (DSL) for deploying Azure resources, a more readable alternative to ARM JSON templates. In pipelines, use AzureCLI@2 with az deployment group create --template-file main.bicep or the AzureResourceManagerTemplateDeployment@3 task. Bicep files are version-controlled and deployed as infrastructure-as-code.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q101.</span> What is Azure DevTest Labs integration with Azure DevOps?</p>
+          <p class="answer"><b>Answer:</b> Azure DevTest Labs provides on-demand dev/test environments. Azure Pipelines can create lab VMs as deployment targets, run tests, and delete VMs afterward. The DevTest Labs tasks in Azure Pipelines automate VM creation, deployment, and cleanup, enabling disposable test environments on a per-build basis.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q102.</span> What is the Azure Pipelines REST API used for?</p>
+          <p class="answer"><b>Answer:</b> The Pipelines REST API enables programmatic control: triggering pipelines (POST /runs), getting build status, downloading artifacts, managing variable groups, queuing builds with custom parameters, and integrating Azure DevOps with external systems. Used in ChatOps bots, custom dashboards, and automation scripts.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q103.</span> What is a rolling deployment strategy in Azure Pipelines?</p>
+          <p class="answer"><b>Answer:</b> The rolling strategy in a deployment job gradually deploys to batches of targets. Define maxParallel to control the batch size. Each batch: preDeploy hook, deploy hook, routeTraffic hook, postRouteTraffic hook. If a batch fails, the deployment stops. Useful for updating VM farms or container instances incrementally.</p>
+        </div>
+        <hr>
+      
+        <div class="qa-block">
+          <p class="question"><span class="q-num">Q104.</span> What is Azure Pipelines integration with Azure Monitor?</p>
+          <p class="answer"><b>Answer:</b> Azure Pipelines deployment gates can query Azure Monitor alerts before or after a deployment stage. If there are active critical alerts in the target environment, the gate fails and the deployment is blocked or rolled back. This automates production health validation as part of the deployment pipeline.</p>
+        </div>
+        <hr>
+      </body></html>
